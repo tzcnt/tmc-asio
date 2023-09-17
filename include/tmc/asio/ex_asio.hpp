@@ -95,19 +95,9 @@ struct ex_asio {
 };
 
 namespace detail {
-#ifndef TMC_NO_GLOBAL_RUNTIME
 inline ex_asio g_ex_asio;
-#else
-inline ex_asio *g_ex_asio;
-#endif
 } // namespace detail
 
-constexpr ex_asio &asio_executor() {
-#ifndef TMC_NO_GLOBAL_RUNTIME
-  return detail::g_ex_asio;
-#else
-  return *detail::g_ex_asio;
-#endif
-}
+constexpr ex_asio &asio_executor() { return detail::g_ex_asio; }
 
 } // namespace tmc
