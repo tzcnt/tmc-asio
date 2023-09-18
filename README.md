@@ -34,6 +34,7 @@ Provides a global Asio executor accessible via `tmc::asio_executor()`. This exec
 
 ```cpp
 #include "asio.hpp" // Asio library header
+#include "tmc/ex_cpu.hpp"
 #include "tmc/task.hpp"
 #include "tmc/asio/aw_asio.hpp"
 #include "tmc/asio/ex_asio.hpp"
