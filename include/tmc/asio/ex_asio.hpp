@@ -23,8 +23,8 @@ struct ex_asio {
     if (ioc.stopped()) {
       ioc.restart();
     }
-    ioc.get_executor()
-        .on_work_started(); // replaces need for an executor_work_guard
+    ioc.get_executor().on_work_started(
+    ); // replaces need for an executor_work_guard
     ioc_thread = std::jthread([this]() {
       init_thread_locals(0);
       ioc.run();
@@ -35,8 +35,8 @@ struct ex_asio {
       return;
     }
     is_initialized = false;
-    ioc.get_executor()
-        .on_work_finished(); // replaces need for an executor_work_guard
+    ioc.get_executor().on_work_finished(
+    ); // replaces need for an executor_work_guard
     ioc.stop();
     ioc_thread.join();
   }
@@ -47,7 +47,7 @@ struct ex_asio {
     init(nthreads);
   }
   inline ~ex_asio() { teardown(); }
-  inline tmc::detail::type_erased_executor *type_erased() {
+  inline tmc::detail::type_erased_executor* type_erased() {
     return &type_erased_this;
   }
   inline void init_thread_locals(size_t slot) {
@@ -56,7 +56,7 @@ struct ex_asio {
     // &yield_priority[slot]};
     // use string concatenation to avoid needing add'l headers
     detail::this_thread::thread_name =
-        std::string("i/o thread ") + std::to_string(slot);
+      std::string("i/o thread ") + std::to_string(slot);
   }
 
   inline void clear_thread_locals() {
@@ -66,7 +66,7 @@ struct ex_asio {
   }
   inline void graceful_stop() { ioc.stop(); }
 
-  inline void post_variant(work_item &&item, size_t priority) {
+  inline void post_variant(work_item&& item, size_t priority) {
 #ifdef TMC_USE_BOOST_ASIO
     boost::asio::post(ioc.get_executor(), item);
 #else
@@ -98,6 +98,6 @@ namespace detail {
 inline ex_asio g_ex_asio;
 } // namespace detail
 
-constexpr ex_asio &asio_executor() { return detail::g_ex_asio; }
+constexpr ex_asio& asio_executor() { return detail::g_ex_asio; }
 
 } // namespace tmc
