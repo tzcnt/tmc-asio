@@ -50,14 +50,14 @@ template <typename... Args> struct aw_asio_base {
     continuation_executor = executor;
     return *this;
   }
-  
+
   /// When awaited, the outer coroutine will be resumed on the provided
   /// executor.
   template <detail::TypeErasableExecutor Exec>
   aw_asio_base& resume_on(Exec& executor) {
     return resume_on(executor.type_erased());
   }
-  
+
   /// When awaited, the outer coroutine will be resumed on the provided
   /// executor.
   template <detail::TypeErasableExecutor Exec>
@@ -67,7 +67,7 @@ template <typename... Args> struct aw_asio_base {
 
   /// When awaited, the outer coroutine will be resumed with the provided
   /// priority.
-  inline aw_spawned_task& resume_with_priority(size_t priority) {
+  inline aw_asio_base& resume_with_priority(size_t priority) {
     prio = priority;
     return *this;
   }
