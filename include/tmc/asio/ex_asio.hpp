@@ -23,8 +23,8 @@ struct ex_asio {
     if (ioc.stopped()) {
       ioc.restart();
     }
-    ioc.get_executor().on_work_started(
-    ); // replaces need for an executor_work_guard
+    // replaces need for an executor_work_guard
+    ioc.get_executor().on_work_started(); 
     ioc_thread = std::jthread([this]() {
       init_thread_locals(0);
       ioc.run();
@@ -35,8 +35,8 @@ struct ex_asio {
       return;
     }
     is_initialized = false;
-    ioc.get_executor().on_work_finished(
-    ); // replaces need for an executor_work_guard
+    // replaces need for an executor_work_guard
+    ioc.get_executor().on_work_finished();
     ioc.stop();
     ioc_thread.join();
   }
@@ -98,6 +98,7 @@ namespace detail {
 inline ex_asio g_ex_asio;
 } // namespace detail
 
+/// Returns a reference to the global instance of `tmc::ex_asio`.
 constexpr ex_asio& asio_executor() { return detail::g_ex_asio; }
 
 } // namespace tmc
