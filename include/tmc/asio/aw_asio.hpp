@@ -22,7 +22,7 @@ template <typename... Args> struct aw_asio_base {
       if (me->continuation_executor == detail::this_thread::executor) {
         me->outer.resume();
       } else {
-        me->continuation_executor->post_variant(std::move(me->outer), me->prio);
+        me->continuation_executor->post(std::move(me->outer), me->prio);
       }
     }
   };

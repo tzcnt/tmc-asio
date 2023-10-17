@@ -66,7 +66,7 @@ struct ex_asio {
   }
   inline void graceful_stop() { ioc.stop(); }
 
-  inline void post_variant(work_item&& item, size_t priority) {
+  inline void post(work_item&& item, size_t priority) {
 #ifdef TMC_USE_BOOST_ASIO
     boost::asio::post(ioc.get_executor(), item);
 #else
