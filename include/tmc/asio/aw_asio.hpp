@@ -44,17 +44,32 @@ template <typename... Args> struct aw_asio_base {
 
   auto await_resume() noexcept { return *std::move(result); }
 
+  /// When awaited, the outer coroutine will be resumed on the provided
+  /// executor.
   inline aw_asio_base& resume_on(detail::type_erased_executor* executor) {
     continuation_executor = executor;
     return *this;
   }
+  
+  /// When awaited, the outer coroutine will be resumed on the provided
+  /// executor.
   template <detail::TypeErasableExecutor Exec>
   aw_asio_base& resume_on(Exec& executor) {
     return resume_on(executor.type_erased());
   }
+  
+  /// When awaited, the outer coroutine will be resumed on the provided
+  /// executor.
   template <detail::TypeErasableExecutor Exec>
   aw_asio_base& resume_on(Exec* executor) {
     return resume_on(executor->type_erased());
+  }
+
+  /// When awaited, the outer coroutine will be resumed with the provided
+  /// priority.
+  inline aw_spawned_task& resume_with_priority(size_t priority) {
+    prio = priority;
+    return *this;
   }
 };
 
