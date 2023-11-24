@@ -1,11 +1,14 @@
 #pragma once
 #include "asio.hpp"
+#include "tmc/aw_resume_on.hpp"
 #include "tmc/detail/thread_locals.hpp"
 #include <functional>
 #include <string>
 #include <thread>
+
 namespace tmc {
-struct ex_asio {
+class ex_asio {
+public:
 #ifdef TMC_USE_BOOST_ASIO
   using ioc_t = boost::asio::io_context;
 #else
@@ -24,7 +27,7 @@ struct ex_asio {
       ioc.restart();
     }
     // replaces need for an executor_work_guard
-    ioc.get_executor().on_work_started(); 
+    ioc.get_executor().on_work_started();
     ioc_thread = std::jthread([this]() {
       init_thread_locals(0);
       ioc.run();
@@ -92,6 +95,18 @@ struct ex_asio {
   using executor_type = ioc_t::executor_type;
   inline operator executor_type() { return ioc.get_executor(); }
   inline operator asio::any_io_executor() { return ioc.get_executor(); }
+
+private:
+  friend class aw_ex_scope_enter<ex_asio>;
+  inline std::coroutine_handle<>
+  task_enter_context(std::coroutine_handle<> outer, size_t prio) {
+    if (detail::this_thread::executor == &type_erased_this) {
+      return outer;
+    } else {
+      post(std::move(outer), prio);
+      return std::noop_coroutine();
+    }
+  }
 };
 
 namespace detail {
