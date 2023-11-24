@@ -9,12 +9,14 @@
 #include <thread>
 namespace tmc {
 
-template <typename... Args> struct aw_asio_base {
+/// Base class used to implement TMC awaitables for Asio operations.
+template <typename... Args> class aw_asio_base {
   std::optional<std::tuple<Args...>> result;
   std::coroutine_handle<> outer;
   detail::type_erased_executor* continuation_executor;
   size_t prio;
 
+protected:
   struct callback {
     aw_asio_base* me;
     template <typename... Args_> void operator()(Args_&&... args) {
@@ -27,7 +29,7 @@ template <typename... Args> struct aw_asio_base {
     }
   };
 
-  virtual void initiate(callback cb) = 0;
+  virtual void initiate_await(callback cb) = 0;
   virtual ~aw_asio_base() = default;
 
   aw_asio_base()
@@ -35,11 +37,12 @@ template <typename... Args> struct aw_asio_base {
         prio(detail::this_thread::this_task.prio) {}
   aw_asio_base(aw_asio_base&& other) : result(std::move(other.result)) {}
 
+public:
   bool await_ready() { return false; }
 
   void await_suspend(std::coroutine_handle<> h) noexcept {
     outer = h;
-    initiate(callback{this});
+    initiate_await(callback{this});
   }
 
   auto await_resume() noexcept { return *std::move(result); }
@@ -127,8 +130,11 @@ namespace asio {
 
 // Specialization of asio::async_result to produce a TMC awaitable
 template <typename... Args> struct async_result<tmc::aw_asio_t, void(Args...)> {
+  /// TMC awaitable for an Asio operation
   template <typename Initiation, typename... InitArgs>
-  struct aw_asio final : tmc::aw_asio_base<std::decay_t<Args>...> {
+  class aw_asio final : public tmc::aw_asio_base<std::decay_t<Args>...> {
+    friend async_result;
+
     Initiation initiation;
     std::tuple<InitArgs...> init_args;
     template <typename Initiation_, typename... InitArgs_>
@@ -136,7 +142,7 @@ template <typename... Args> struct async_result<tmc::aw_asio_t, void(Args...)> {
         : initiation(std::forward<Initiation_>(initiation)),
           init_args(std::forward<InitArgs_>(args)...) {}
 
-    void initiate(tmc::aw_asio_base<std::decay_t<Args>...>::callback cb
+    void initiate_await(tmc::aw_asio_base<std::decay_t<Args>...>::callback cb
     ) final override {
       std::apply(
         [&](InitArgs&&... init_args) {
