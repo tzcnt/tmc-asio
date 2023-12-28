@@ -1,17 +1,15 @@
 #pragma once
-#include "asio/async_result.hpp"
-#include "tmc/detail/concepts.hpp"
+#include "tmc/detail/concepts.hpp" // IWYU pragma: keep
 #include "tmc/detail/thread_locals.hpp"
+#include <asio/async_result.hpp>
 #include <coroutine>
-#include <functional>
 #include <optional>
-#include <string>
-#include <thread>
+#include <tuple>
 namespace tmc {
 
 /// Base class used to implement TMC awaitables for Asio operations.
-template <typename... Args> class aw_asio_base {
-  std::optional<std::tuple<Args...>> result;
+template <typename... ResultArgs> class aw_asio_base {
+  std::optional<std::tuple<ResultArgs...>> result;
   std::coroutine_handle<> outer;
   detail::type_erased_executor* continuation_executor;
   size_t prio;
@@ -19,8 +17,8 @@ template <typename... Args> class aw_asio_base {
 protected:
   struct callback {
     aw_asio_base* me;
-    template <typename... Args_> void operator()(Args_&&... args) {
-      me->result.emplace(std::move(args)...);
+    template <typename... ResultArgs_> void operator()(ResultArgs_&&... Args) {
+      me->result.emplace(std::move(Args)...);
       if (me->continuation_executor == detail::this_thread::executor) {
         me->outer.resume();
       } else {
@@ -29,7 +27,7 @@ protected:
     }
   };
 
-  virtual void initiate_await(callback cb) = 0;
+  virtual void initiate_await(callback Callback) = 0;
   virtual ~aw_asio_base() = default;
 
   aw_asio_base()
@@ -40,8 +38,8 @@ protected:
 public:
   bool await_ready() { return false; }
 
-  void await_suspend(std::coroutine_handle<> h) noexcept {
-    outer = h;
+  void await_suspend(std::coroutine_handle<> Outer) noexcept {
+    outer = Outer;
     initiate_await(callback{this});
   }
 
@@ -49,29 +47,29 @@ public:
 
   /// When awaited, the outer coroutine will be resumed on the provided
   /// executor.
-  inline aw_asio_base& resume_on(detail::type_erased_executor* executor) {
-    continuation_executor = executor;
+  inline aw_asio_base& resume_on(detail::type_erased_executor* Executor) {
+    continuation_executor = Executor;
     return *this;
   }
 
   /// When awaited, the outer coroutine will be resumed on the provided
   /// executor.
   template <detail::TypeErasableExecutor Exec>
-  aw_asio_base& resume_on(Exec& executor) {
-    return resume_on(executor.type_erased());
+  aw_asio_base& resume_on(Exec& Executor) {
+    return resume_on(Executor.type_erased());
   }
 
   /// When awaited, the outer coroutine will be resumed on the provided
   /// executor.
   template <detail::TypeErasableExecutor Exec>
-  aw_asio_base& resume_on(Exec* executor) {
-    return resume_on(executor->type_erased());
+  aw_asio_base& resume_on(Exec* Executor) {
+    return resume_on(Executor->type_erased());
   }
 
   /// When awaited, the outer coroutine will be resumed with the provided
   /// priority.
-  inline aw_asio_base& resume_with_priority(size_t priority) {
-    prio = priority;
+  inline aw_asio_base& resume_with_priority(size_t Priority) {
+    prio = Priority;
     return *this;
   }
 };
@@ -84,18 +82,18 @@ struct aw_asio_t {
   struct executor_with_default : InnerExecutor {
     typedef aw_asio_t default_completion_token_type;
 
-    executor_with_default(const InnerExecutor& ex) noexcept
-        : InnerExecutor(ex) {}
+    executor_with_default(const InnerExecutor& Executor) noexcept
+        : InnerExecutor(Executor) {}
 
     template <typename InnerExecutor1>
     executor_with_default(
-      const InnerExecutor1& ex,
+      const InnerExecutor1& Executor,
       typename std::enable_if<std::conditional<
         !std::is_same<InnerExecutor1, executor_with_default>::value,
         std::is_convertible<InnerExecutor1, InnerExecutor>,
         std::false_type>::type::value>::type = 0
     ) noexcept
-        : InnerExecutor(ex) {}
+        : InnerExecutor(Executor) {}
   };
 
   // Type alias to adapt an I/O object to use `aw_asio_t` as its
@@ -106,14 +104,14 @@ struct aw_asio_t {
 
   // Function helper to adapt an I/O object to use `aw_asio_t` as its
   // default completion token type.
-  template <typename T>
-  static typename std::decay_t<T>::template rebind_executor<
-    executor_with_default<typename std::decay_t<T>::executor_type>>::other
-  as_default_on(T&& object) {
-    return
-      typename std::decay_t<T>::template rebind_executor<executor_with_default<
-        typename std::decay_t<T>::executor_type>>::other(std::forward<T>(object)
-      );
+  template <typename AsioIoType>
+  static typename std::decay_t<AsioIoType>::template rebind_executor<
+    executor_with_default<typename std::decay_t<AsioIoType>::executor_type>>::
+    other
+    as_default_on(AsioIoType&& AsioIoObject) {
+    return typename std::decay_t<AsioIoType>::template rebind_executor<
+      executor_with_default<typename std::decay_t<AsioIoType>::executor_type>>::
+      other(std::forward<AsioIoType>(AsioIoObject));
   }
 };
 
@@ -129,24 +127,26 @@ namespace asio {
 #endif
 
 // Specialization of asio::async_result to produce a TMC awaitable
-template <typename... Args> struct async_result<tmc::aw_asio_t, void(Args...)> {
+template <typename... ResultArgs>
+struct async_result<tmc::aw_asio_t, void(ResultArgs...)> {
   /// TMC awaitable for an Asio operation
-  template <typename Initiation, typename... InitArgs>
-  class aw_asio final : public tmc::aw_asio_base<std::decay_t<Args>...> {
+  template <typename Init, typename... InitArgs>
+  class aw_asio final : public tmc::aw_asio_base<std::decay_t<ResultArgs>...> {
     friend async_result;
 
-    Initiation initiation;
+    Init initiation;
     std::tuple<InitArgs...> init_args;
-    template <typename Initiation_, typename... InitArgs_>
-    aw_asio(Initiation_&& initiation, InitArgs_&&... args)
-        : initiation(std::forward<Initiation_>(initiation)),
-          init_args(std::forward<InitArgs_>(args)...) {}
+    template <typename Init_, typename... InitArgs_>
+    aw_asio(Init_&& Initiation, InitArgs_&&... Args)
+        : initiation(std::forward<Init_>(Initiation)),
+          init_args(std::forward<InitArgs_>(Args)...) {}
 
-    void initiate_await(tmc::aw_asio_base<std::decay_t<Args>...>::callback cb
+    void initiate_await(
+      tmc::aw_asio_base<std::decay_t<ResultArgs>...>::callback Callback
     ) final override {
       std::apply(
-        [&](InitArgs&&... init_args) {
-          std::move(initiation)(std::move(cb), std::move(init_args)...);
+        [&](InitArgs&&... Args) {
+          std::move(initiation)(std::move(Callback), std::move(Args)...);
         },
         std::move(init_args)
       );
@@ -155,11 +155,11 @@ template <typename... Args> struct async_result<tmc::aw_asio_t, void(Args...)> {
 
   // This doesn't actually initiate the operation, just returns the awaitable.
   // Initiation happens in aw_asio_base::await_suspend();
-  template <typename Initiation, typename... InitArgs>
-  static aw_asio<std::decay_t<Initiation>, std::decay_t<InitArgs>...>
-  initiate(Initiation&& initiation, tmc::aw_asio_t, InitArgs&&... args) {
-    return aw_asio<std::decay_t<Initiation>, std::decay_t<InitArgs>...>(
-      std::forward<Initiation>(initiation), std::forward<InitArgs>(args)...
+  template <typename Init, typename... InitArgs>
+  static aw_asio<std::decay_t<Init>, std::decay_t<InitArgs>...>
+  initiate(Init&& Initiation, tmc::aw_asio_t, InitArgs&&... Args) {
+    return aw_asio<std::decay_t<Init>, std::decay_t<InitArgs>...>(
+      std::forward<Init>(Initiation), std::forward<InitArgs>(Args)...
     );
   }
 };
