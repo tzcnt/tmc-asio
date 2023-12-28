@@ -79,14 +79,14 @@ public:
   }
 
   template <typename It>
-  void post_bulk(It items, [[maybe_unused]] size_t Priority, size_t Count) {
+  void post_bulk(It Items, [[maybe_unused]] size_t Priority, size_t Count) {
     for (size_t i = 0; i < Count; ++i) {
 #ifdef TMC_USE_BOOST_ASIO
-      boost::asio::post(ioc.get_executor(), *items);
+      boost::asio::post(ioc.get_executor(), *Items);
 #else
-      asio::post(ioc.get_executor(), *items);
+      asio::post(ioc.get_executor(), *Items);
 #endif
-      ++items;
+      ++Items;
     }
   }
 
