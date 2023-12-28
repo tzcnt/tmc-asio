@@ -2,7 +2,6 @@
 #include "asio.hpp"
 #include "tmc/aw_resume_on.hpp"
 #include "tmc/detail/thread_locals.hpp"
-#include <functional>
 #include <string>
 #include <thread>
 

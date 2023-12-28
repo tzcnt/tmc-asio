@@ -3,10 +3,8 @@
 #include "tmc/detail/concepts.hpp"
 #include "tmc/detail/thread_locals.hpp"
 #include <coroutine>
-#include <functional>
 #include <optional>
-#include <string>
-#include <thread>
+#include <tuple>
 namespace tmc {
 
 /// Base class used to implement TMC awaitables for Asio operations.
