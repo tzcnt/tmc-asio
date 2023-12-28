@@ -1,7 +1,9 @@
 #pragma once
-#include "asio.hpp"
 #include "tmc/aw_resume_on.hpp"
 #include "tmc/detail/thread_locals.hpp"
+#include <asio/any_io_executor.hpp>
+#include <asio/io_context.hpp>
+#include <asio/post.hpp>
 #include <string>
 #include <thread>
 
