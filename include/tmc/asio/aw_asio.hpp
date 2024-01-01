@@ -19,7 +19,7 @@ protected:
     aw_asio_base* me;
     template <typename... ResultArgs_> void operator()(ResultArgs_&&... Args) {
       me->result.emplace(std::move(Args)...);
-      if (me->continuation_executor == detail::this_thread::executor) {
+      if (me->continuation_executor == detail::this_thread::tls.executor) {
         me->outer.resume();
       } else {
         me->continuation_executor->post(std::move(me->outer), me->prio);
@@ -31,8 +31,8 @@ protected:
   virtual ~aw_asio_base() = default;
 
   aw_asio_base()
-      : continuation_executor(detail::this_thread::executor),
-        prio(detail::this_thread::this_task.prio) {}
+      : continuation_executor(detail::this_thread::tls.executor),
+        prio(detail::this_thread::tls.this_task.prio) {}
   aw_asio_base(aw_asio_base&& other) : result(std::move(other.result)) {}
 
 public:

@@ -61,7 +61,7 @@ Use of the `ex_asio.hpp` header and the global executor that it provides is not 
 - From a coroutine running on the TMC executor, initiating an async operation on Asio and `co_await`ing it using the `tmc::aw_asio` completion token. Once the Asio operation completes, the coroutine will be posted back to the TMC executor queue to be resumed.
 
 
-To fully integrate your existing Asio setup with TMC, you must implement a `tmc::detail::TypeErasableExecutor` shim and set the `tmc::detail::this_thread::executor` pointer to it (see `tmc::ex_asio.init_thread_locals()`). This unlocks the following additional functionality:
+To fully integrate your existing Asio setup with TMC, you must implement a `tmc::detail::TypeErasableExecutor` shim and set the `tmc::detail::this_thread::tls.executor` pointer to it (see `tmc::ex_asio.init_thread_locals()`). This unlocks the following additional functionality:
 - `co_await`ing a `tmc::aw_asio` operation from a coroutine running on the Asio executor and having it resume inline on the Asio executor.
 - `co_await`ing a `tmc::aw_asio` operation from a coroutine running on the TMC executor and modifying it via the `.resume_on()` function to have it resume inline on the Asio executor, rather than back on the TMC executor.
 - Using the standalone `co_await tmc::resume_on()` function to switch a running coroutine onto the Asio executor at any time.

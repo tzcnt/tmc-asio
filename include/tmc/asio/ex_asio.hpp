@@ -55,18 +55,18 @@ public:
     return &type_erased_this;
   }
   inline void init_thread_locals(size_t Slot) {
-    detail::this_thread::executor = &type_erased_this;
-    // detail::this_thread::this_task = {.prio = 0, .yield_priority =
+    detail::this_thread::tls.executor = &type_erased_this;
+    // detail::this_thread::tls.this_task = {.prio = 0, .yield_priority =
     // &yield_priority[slot]};
     // use string concatenation to avoid needing add'l headers
-    detail::this_thread::thread_name =
+    detail::this_thread::tls.thread_name =
       std::string("i/o thread ") + std::to_string(Slot);
   }
 
   inline void clear_thread_locals() {
-    detail::this_thread::executor = nullptr;
-    // detail::this_thread::this_task = {};
-    detail::this_thread::thread_name.clear();
+    detail::this_thread::tls.executor = nullptr;
+    // detail::this_thread::tls.this_task = {};
+    detail::this_thread::tls.thread_name.clear();
   }
   inline void graceful_stop() { ioc.stop(); }
 
@@ -101,7 +101,7 @@ private:
   friend class aw_ex_scope_enter<ex_asio>;
   inline std::coroutine_handle<>
   task_enter_context(std::coroutine_handle<> Outer, size_t Priority) {
-    if (detail::this_thread::executor == &type_erased_this) {
+    if (detail::this_thread::tls.executor == &type_erased_this) {
       return Outer;
     } else {
       post(std::move(Outer), Priority);
