@@ -19,7 +19,7 @@ protected:
     aw_asio_base* me;
     template <typename... ResultArgs_> void operator()(ResultArgs_&&... Args) {
       me->result.emplace(std::move(Args)...);
-      if (me->continuation_executor == detail::this_thread::executor) {
+      if (me->continuation_executor == nullptr || me->continuation_executor == detail::this_thread::executor) {
         me->outer.resume();
       } else {
         me->continuation_executor->post(std::move(me->outer), me->prio);
