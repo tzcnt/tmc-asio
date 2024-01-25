@@ -45,9 +45,9 @@ public:
     ioc_thread.join();
   }
 
-  inline ex_asio() : ioc(1), type_erased_this(*this), is_initialized(false) {}
+  inline ex_asio() : ioc(1), type_erased_this(this), is_initialized(false) {}
   inline ex_asio(int ThreadCount)
-      : ioc(ThreadCount), type_erased_this(*this), is_initialized(false) {
+      : ioc(ThreadCount), type_erased_this(this), is_initialized(false) {
     init(ThreadCount);
   }
   inline ~ex_asio() { teardown(); }
