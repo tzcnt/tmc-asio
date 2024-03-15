@@ -28,7 +28,6 @@ protected:
   };
 
   virtual void initiate_await(callback Callback) = 0;
-  virtual ~aw_asio_base() = default;
 
   aw_asio_base()
       : continuation_executor(detail::this_thread::executor),
@@ -36,6 +35,7 @@ protected:
   aw_asio_base(aw_asio_base&& other) : result(std::move(other.result)) {}
 
 public:
+  virtual ~aw_asio_base() = default;
   bool await_ready() { return false; }
 
   void await_suspend(std::coroutine_handle<> Outer) noexcept {
