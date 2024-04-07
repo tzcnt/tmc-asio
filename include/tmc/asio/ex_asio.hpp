@@ -4,11 +4,15 @@
 #include <asio/any_io_executor.hpp>
 #include <asio/io_context.hpp>
 #include <asio/post.hpp>
-#include <string>
 #include <thread>
 
 namespace tmc {
 class ex_asio {
+  struct InitParams {
+    void (*thread_init_hook)(size_t) = nullptr;
+  };
+  InitParams* init_params = nullptr;
+
 public:
 #ifdef TMC_USE_BOOST_ASIO
   using ioc_t = boost::asio::io_context;
@@ -19,6 +23,18 @@ public:
   std::jthread ioc_thread;
   tmc::detail::type_erased_executor type_erased_this;
   bool is_initialized;
+
+  /// Hook will be invoked at the startup of each thread owned by this executor,
+  /// and passed the ordinal index (0..thread_count()-1) of the thread.
+  inline ex_asio& set_thread_init_hook(void (*Hook)(size_t)) {
+    assert(!is_initialized);
+    if (init_params == nullptr) {
+      init_params = new InitParams;
+    }
+    init_params->thread_init_hook = Hook;
+    return *this;
+  }
+
   inline void init([[maybe_unused]] int ThreadCount = 1) {
     if (is_initialized) {
       return;
@@ -58,15 +74,14 @@ public:
     detail::this_thread::executor = &type_erased_this;
     // detail::this_thread::this_task = {.prio = 0, .yield_priority =
     // &yield_priority[slot]};
-    // use string concatenation to avoid needing add'l headers
-    detail::this_thread::thread_name =
-      std::string("i/o thread ") + std::to_string(Slot);
+    if (init_params != nullptr && init_params->thread_init_hook != nullptr) {
+      init_params->thread_init_hook(Slot);
+    }
   }
 
   inline void clear_thread_locals() {
     detail::this_thread::executor = nullptr;
     // detail::this_thread::this_task = {};
-    detail::this_thread::thread_name.clear();
   }
   inline void graceful_stop() { ioc.stop(); }
 
