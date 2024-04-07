@@ -49,6 +49,11 @@ public:
       init_thread_locals(0);
       ioc.run();
     });
+
+    if (init_params != nullptr) {
+      delete init_params;
+      init_params = nullptr;
+    }
   }
   inline void teardown() {
     if (!is_initialized) {
