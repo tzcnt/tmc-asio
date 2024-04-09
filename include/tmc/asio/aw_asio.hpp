@@ -18,7 +18,7 @@ protected:
   struct callback {
     aw_asio_base* me;
     template <typename... ResultArgs_> void operator()(ResultArgs_&&... Args) {
-      me->result.emplace(std::move(Args)...);
+      me->result.emplace(static_cast<ResultArgs_&&>(Args)...);
       if (me->continuation_executor == nullptr || me->continuation_executor == detail::this_thread::executor) {
         me->outer.resume();
       } else {
@@ -111,7 +111,7 @@ struct aw_asio_t {
     as_default_on(AsioIoType&& AsioIoObject) {
     return typename std::decay_t<AsioIoType>::template rebind_executor<
       executor_with_default<typename std::decay_t<AsioIoType>::executor_type>>::
-      other(std::forward<AsioIoType>(AsioIoObject));
+      other(static_cast<AsioIoType&&>(AsioIoObject));
   }
 };
 
@@ -138,8 +138,8 @@ struct async_result<tmc::aw_asio_t, void(ResultArgs...)> {
     std::tuple<InitArgs...> init_args;
     template <typename Init_, typename... InitArgs_>
     aw_asio(Init_&& Initiation, InitArgs_&&... Args)
-        : initiation(std::forward<Init_>(Initiation)),
-          init_args(std::forward<InitArgs_>(Args)...) {}
+        : initiation(static_cast<Init_&&>(Initiation)),
+          init_args(static_cast<InitArgs_&&>(Args)...) {}
 
     void initiate_await(
       tmc::aw_asio_base<std::decay_t<ResultArgs>...>::callback Callback
@@ -159,7 +159,7 @@ struct async_result<tmc::aw_asio_t, void(ResultArgs...)> {
   static aw_asio<std::decay_t<Init>, std::decay_t<InitArgs>...>
   initiate(Init&& Initiation, tmc::aw_asio_t, InitArgs&&... Args) {
     return aw_asio<std::decay_t<Init>, std::decay_t<InitArgs>...>(
-      std::forward<Init>(Initiation), std::forward<InitArgs>(Args)...
+      static_cast<Init&&>(Initiation), static_cast<InitArgs&&>(Args)...
     );
   }
 };
