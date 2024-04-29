@@ -1,5 +1,6 @@
 #pragma once
 #include "tmc/detail/concepts.hpp" // IWYU pragma: keep
+#include "tmc/detail/mixins.hpp"
 #include "tmc/detail/thread_locals.hpp"
 #include <asio/async_result.hpp>
 #include <coroutine>
@@ -8,7 +9,12 @@
 namespace tmc {
 
 /// Base class used to implement TMC awaitables for Asio operations.
-template <typename... ResultArgs> class aw_asio_base {
+template <typename... ResultArgs>
+class aw_asio_base
+    : public detail::resume_on_mixin<aw_asio_base<ResultArgs...>>,
+      public detail::with_priority_mixin<aw_asio_base<ResultArgs...>> {
+  friend class detail::resume_on_mixin<aw_asio_base<ResultArgs...>>;
+  friend class detail::with_priority_mixin<aw_asio_base<ResultArgs...>>;
   std::optional<std::tuple<ResultArgs...>> result;
   std::coroutine_handle<> outer;
   detail::type_erased_executor* continuation_executor;
@@ -19,7 +25,8 @@ protected:
     aw_asio_base* me;
     template <typename... ResultArgs_> void operator()(ResultArgs_&&... Args) {
       me->result.emplace(static_cast<ResultArgs_&&>(Args)...);
-      if (me->continuation_executor == nullptr || me->continuation_executor == detail::this_thread::executor) {
+      if (me->continuation_executor == nullptr ||
+          me->continuation_executor == detail::this_thread::executor) {
         me->outer.resume();
       } else {
         me->continuation_executor->post(std::move(me->outer), me->prio);
@@ -44,34 +51,6 @@ public:
   }
 
   auto await_resume() noexcept { return *std::move(result); }
-
-  /// When awaited, the outer coroutine will be resumed on the provided
-  /// executor.
-  inline aw_asio_base& resume_on(detail::type_erased_executor* Executor) {
-    continuation_executor = Executor;
-    return *this;
-  }
-
-  /// When awaited, the outer coroutine will be resumed on the provided
-  /// executor.
-  template <detail::TypeErasableExecutor Exec>
-  aw_asio_base& resume_on(Exec& Executor) {
-    return resume_on(Executor.type_erased());
-  }
-
-  /// When awaited, the outer coroutine will be resumed on the provided
-  /// executor.
-  template <detail::TypeErasableExecutor Exec>
-  aw_asio_base& resume_on(Exec* Executor) {
-    return resume_on(Executor->type_erased());
-  }
-
-  /// When awaited, the outer coroutine will be resumed with the provided
-  /// priority.
-  inline aw_asio_base& resume_with_priority(size_t Priority) {
-    prio = Priority;
-    return *this;
-  }
 };
 
 struct aw_asio_t {
