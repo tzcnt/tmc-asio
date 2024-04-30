@@ -45,7 +45,8 @@ public:
   virtual ~aw_asio_base() = default;
   bool await_ready() { return false; }
 
-  void await_suspend(std::coroutine_handle<> Outer) noexcept {
+  TMC_FORCE_INLINE inline void await_suspend(std::coroutine_handle<> Outer
+  ) noexcept {
     outer = Outer;
     initiate_await(callback{this});
   }
