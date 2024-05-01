@@ -9,18 +9,13 @@
 namespace tmc {
 
 /// Base class used to implement TMC awaitables for Asio operations.
-template <typename... ResultArgs>
-class aw_asio_base
-    : public detail::resume_on_mixin<aw_asio_base<ResultArgs...>>,
-      public detail::with_priority_mixin<aw_asio_base<ResultArgs...>> {
-  friend class detail::resume_on_mixin<aw_asio_base<ResultArgs...>>;
-  friend class detail::with_priority_mixin<aw_asio_base<ResultArgs...>>;
+template <typename... ResultArgs> class aw_asio_base {
+protected:
   std::optional<std::tuple<ResultArgs...>> result;
   std::coroutine_handle<> outer;
   detail::type_erased_executor* continuation_executor;
   size_t prio;
 
-protected:
   struct callback {
     aw_asio_base* me;
     template <typename... ResultArgs_> void operator()(ResultArgs_&&... Args) {
@@ -39,7 +34,6 @@ protected:
   aw_asio_base()
       : continuation_executor(detail::this_thread::executor),
         prio(detail::this_thread::this_task.prio) {}
-  aw_asio_base(aw_asio_base&& other) : result(std::move(other.result)) {}
 
 public:
   virtual ~aw_asio_base() = default;
@@ -111,8 +105,13 @@ template <typename... ResultArgs>
 struct async_result<tmc::aw_asio_t, void(ResultArgs...)> {
   /// TMC awaitable for an Asio operation
   template <typename Init, typename... InitArgs>
-  class aw_asio final : public tmc::aw_asio_base<std::decay_t<ResultArgs>...> {
+  class aw_asio final
+      : public tmc::aw_asio_base<std::decay_t<ResultArgs>...>,
+        public tmc::detail::resume_on_mixin<aw_asio<Init, InitArgs...>>,
+        public tmc::detail::with_priority_mixin<aw_asio<Init, InitArgs...>> {
     friend async_result;
+    friend class tmc::detail::resume_on_mixin<aw_asio<Init, InitArgs...>>;
+    friend class tmc::detail::with_priority_mixin<aw_asio<Init, InitArgs...>>;
 
     Init initiation;
     std::tuple<InitArgs...> init_args;
