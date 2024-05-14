@@ -21,7 +21,7 @@ protected:
     template <typename... ResultArgs_> void operator()(ResultArgs_&&... Args) {
       me->result.emplace(static_cast<ResultArgs_&&>(Args)...);
       if (me->continuation_executor == nullptr ||
-          me->continuation_executor == detail::this_thread::executor) {
+          detail::this_thread::exec_is(me->continuation_executor)) {
         me->outer.resume();
       } else {
         me->continuation_executor->post(std::move(me->outer), me->prio);

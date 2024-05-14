@@ -121,7 +121,7 @@ private:
   friend class aw_ex_scope_enter<ex_asio>;
   inline std::coroutine_handle<>
   task_enter_context(std::coroutine_handle<> Outer, size_t Priority) {
-    if (detail::this_thread::executor == &type_erased_this) {
+    if (detail::this_thread::exec_is(&type_erased_this)) {
       return Outer;
     } else {
       post(std::move(Outer), Priority);
