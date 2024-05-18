@@ -1,3 +1,12 @@
+// Copyright (c) 2022 Klemens Morgenstern (klemens.morgenstern@gmx.net)
+// Copyright (c) 2023-2024 Logan McDougall
+//
+// Distributed under the Boost Software License, Version 1.0. (See accompanying
+// file LICENSE or copy at http://www.boost.org/LICENSE_1_0.txt)
+
+// inspired by
+// https://github.com/boostorg/cobalt/blob/develop/include/boost/cobalt/op.hpp
+
 #pragma once
 #include "tmc/detail/concepts.hpp" // IWYU pragma: keep
 #include "tmc/detail/mixins.hpp"
