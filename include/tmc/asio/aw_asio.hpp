@@ -33,6 +33,7 @@ protected:
       if (exec == nullptr || detail::this_thread::exec_is(exec)) {
         me->outer.resume();
       } else {
+        // post_checked is redundant with the prior check at the moment
         detail::post_checked(exec, std::move(me->outer), me->prio);
       }
     }
