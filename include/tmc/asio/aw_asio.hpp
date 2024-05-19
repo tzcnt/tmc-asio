@@ -29,11 +29,11 @@ protected:
     aw_asio_base* me;
     template <typename... ResultArgs_> void operator()(ResultArgs_&&... Args) {
       me->result.emplace(static_cast<ResultArgs_&&>(Args)...);
-      if (me->continuation_executor == nullptr ||
-          detail::this_thread::exec_is(me->continuation_executor)) {
+      auto exec = me->continuation_executor;
+      if (exec == nullptr || detail::this_thread::exec_is(exec)) {
         me->outer.resume();
       } else {
-        me->continuation_executor->post(std::move(me->outer), me->prio);
+        detail::post_checked(exec, std::move(me->outer), me->prio);
       }
     }
   };
