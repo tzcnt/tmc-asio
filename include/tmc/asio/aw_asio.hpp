@@ -22,7 +22,7 @@ template <typename... ResultArgs> class aw_asio_base {
 protected:
   std::optional<std::tuple<ResultArgs...>> result;
   std::coroutine_handle<> outer;
-  detail::type_erased_executor* continuation_executor;
+  tmc::detail::type_erased_executor* continuation_executor;
   size_t prio;
 
   struct callback {
@@ -30,11 +30,11 @@ protected:
     template <typename... ResultArgs_> void operator()(ResultArgs_&&... Args) {
       me->result.emplace(static_cast<ResultArgs_&&>(Args)...);
       auto exec = me->continuation_executor;
-      if (exec == nullptr || detail::this_thread::exec_is(exec)) {
+      if (exec == nullptr || tmc::detail::this_thread::exec_is(exec)) {
         me->outer.resume();
       } else {
         // post_checked is redundant with the prior check at the moment
-        detail::post_checked(exec, std::move(me->outer), me->prio);
+        tmc::detail::post_checked(exec, std::move(me->outer), me->prio);
       }
     }
   };
@@ -42,8 +42,8 @@ protected:
   virtual void initiate_await(callback Callback) = 0;
 
   aw_asio_base()
-      : continuation_executor(detail::this_thread::executor),
-        prio(detail::this_thread::this_task.prio) {}
+      : continuation_executor(tmc::detail::this_thread::executor),
+        prio(tmc::detail::this_thread::this_task.prio) {}
 
 public:
   virtual ~aw_asio_base() = default;

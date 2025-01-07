@@ -81,8 +81,8 @@ public:
     return &type_erased_this;
   }
   inline void init_thread_locals(size_t Slot) {
-    detail::this_thread::executor = &type_erased_this;
-    // detail::this_thread::this_task = {.prio = 0, .yield_priority =
+    tmc::detail::this_thread::executor = &type_erased_this;
+    // tmc::detail::this_thread::this_task = {.prio = 0, .yield_priority =
     // &yield_priority[slot]};
     if (init_params != nullptr && init_params->thread_init_hook != nullptr) {
       init_params->thread_init_hook(Slot);
@@ -90,8 +90,8 @@ public:
   }
 
   inline void clear_thread_locals() {
-    detail::this_thread::executor = nullptr;
-    // detail::this_thread::this_task = {};
+    tmc::detail::this_thread::executor = nullptr;
+    // tmc::detail::this_thread::this_task = {};
   }
   inline void graceful_stop() { ioc.stop(); }
 
@@ -126,7 +126,7 @@ private:
   friend class aw_ex_scope_enter<ex_asio>;
   inline std::coroutine_handle<>
   task_enter_context(std::coroutine_handle<> Outer, size_t Priority) {
-    if (detail::this_thread::exec_is(&type_erased_this)) {
+    if (tmc::detail::this_thread::exec_is(&type_erased_this)) {
       return Outer;
     } else {
       post(std::move(Outer), Priority);
@@ -140,6 +140,6 @@ inline ex_asio g_ex_asio;
 } // namespace detail
 
 /// Returns a reference to the global instance of `tmc::ex_asio`.
-constexpr ex_asio& asio_executor() { return detail::g_ex_asio; }
+constexpr ex_asio& asio_executor() { return tmc::detail::g_ex_asio; }
 
 } // namespace tmc
