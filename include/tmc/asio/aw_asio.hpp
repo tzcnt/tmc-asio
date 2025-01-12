@@ -18,7 +18,8 @@
 namespace tmc {
 
 /// Base class used to implement TMC awaitables for Asio operations.
-template <typename... ResultArgs> class aw_asio_base {
+template <typename... ResultArgs>
+class aw_asio_base : tmc::detail::AwaitTagNoGroupAsIs {
 protected:
   std::optional<std::tuple<ResultArgs...>> result;
   std::coroutine_handle<> outer;
@@ -55,7 +56,11 @@ public:
     initiate_await(callback{this});
   }
 
-  auto await_resume() noexcept { return *std::move(result); }
+  auto await_resume() noexcept {
+    // Move the result out of the optional
+    // (returns tuple<Result>, not optional<tuple<Result>>)
+    return *std::move(result);
+  }
 };
 
 struct aw_asio_t {
