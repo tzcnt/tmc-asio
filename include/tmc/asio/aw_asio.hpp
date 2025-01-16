@@ -11,17 +11,21 @@
 #include "tmc/detail/concepts.hpp" // IWYU pragma: keep
 #include "tmc/detail/mixins.hpp"
 #include "tmc/detail/thread_locals.hpp"
+#include "tmc/task.hpp"
 #include <asio/async_result.hpp>
 #include <coroutine>
-#include <optional>
 #include <tuple>
 namespace tmc {
+
+template <typename Awaitable, typename... ResultArgs> struct aw_asio_impl;
 
 /// Base class used to implement TMC awaitables for Asio operations.
 template <typename... ResultArgs>
 class aw_asio_base : tmc::detail::AwaitTagNoGroupAsIs {
+  friend tmc::detail::awaitable_traits<aw_asio_base<ResultArgs...>>;
+
 protected:
-  std::optional<std::tuple<ResultArgs...>> result;
+  tmc::detail::result_storage_t<std::tuple<ResultArgs...>>* result;
   std::coroutine_handle<> outer;
   tmc::detail::type_erased_executor* continuation_executor;
   size_t prio;
@@ -29,7 +33,13 @@ protected:
   struct callback {
     aw_asio_base* me;
     template <typename... ResultArgs_> void operator()(ResultArgs_&&... Args) {
-      me->result.emplace(static_cast<ResultArgs_&&>(Args)...);
+      if constexpr (std::is_default_constructible_v<
+                      std::tuple<ResultArgs...>>) {
+        *me->result =
+          std::tuple<ResultArgs...>(std::forward<ResultArgs_>(Args)...);
+      } else {
+        me->result->emplace(static_cast<ResultArgs_&&>(Args)...);
+      }
       auto exec = me->continuation_executor;
       if (exec == nullptr || tmc::detail::this_thread::exec_is(exec)) {
         me->outer.resume();
@@ -40,6 +50,10 @@ protected:
     }
   };
 
+  aw_asio_impl<aw_asio_base, ResultArgs...> operator co_await() && {
+    return aw_asio_impl<aw_asio_base, ResultArgs...>(*this);
+  }
+
   virtual void initiate_await(callback Callback) = 0;
 
   aw_asio_base()
@@ -48,18 +62,77 @@ protected:
 
 public:
   virtual ~aw_asio_base() = default;
+};
+
+namespace detail {
+template <typename... ResultArgs>
+struct awaitable_traits<aw_asio_base<ResultArgs...>> {
+
+  using result_type = std::tuple<ResultArgs...>;
+  using self_type = tmc::aw_asio_base<ResultArgs...>;
+  using awaiter_type = tmc::aw_asio_impl<self_type, ResultArgs...>;
+
+  // Values controlling the behavior when awaited directly in a tmc::task
+  static awaiter_type get_awaiter(self_type&& Awaitable) {
+    return awaiter_type(Awaitable);
+  }
+
+  // Values controlling the behavior when wrapped by a utility function
+  // such as tmc::spawn_*()
+  static constexpr awaitable_mode mode = COROUTINE;
+
+  static void set_result_ptr(
+    self_type& Awaitable,
+    tmc::detail::result_storage_t<std::tuple<ResultArgs...>>* ResultPtr
+  ) {
+    Awaitable.result = ResultPtr;
+  }
+
+  static void set_continuation(self_type& Awaitable, void* Continuation) {
+    // TODO use awaitable_customizer
+    Awaitable.outer = Continuation;
+  }
+
+  static void set_continuation_executor(self_type& Awaitable, void* ContExec) {
+    Awaitable.continuation_executor = ContExec;
+  }
+
+  // static void set_done_count(self_type& Awaitable, void* DoneCount) {
+  //   Awaitable.promise().customizer.done_count = DoneCount;
+  // }
+
+  // static void set_flags(self_type& Awaitable, uint64_t Flags) {
+  //   Awaitable.promise().customizer.flags = Flags;
+  // }
+};
+} // namespace detail
+
+template <typename Awaitable, typename... ResultArgs> struct aw_asio_impl {
+  Awaitable& handle;
+  tmc::detail::result_storage_t<std::tuple<ResultArgs...>> result;
+
+  friend Awaitable;
+  aw_asio_impl(Awaitable& Handle) : handle(Handle) {}
+
   bool await_ready() { return false; }
 
   TMC_FORCE_INLINE inline void await_suspend(std::coroutine_handle<> Outer
   ) noexcept {
-    outer = Outer;
-    initiate_await(callback{this});
+    tmc::detail::awaitable_traits<Awaitable>::set_continuation(
+      handle, Outer.address()
+    );
+    tmc::detail::awaitable_traits<Awaitable>::set_result_ptr(handle, &result);
+    handle.initiate_await(Awaitable::callback{&handle});
   }
 
   auto await_resume() noexcept {
     // Move the result out of the optional
     // (returns tuple<Result>, not optional<tuple<Result>>)
-    return *std::move(result);
+    if constexpr (std::is_default_constructible_v<std::tuple<ResultArgs...>>) {
+      return std::move(result);
+    } else {
+      return *std::move(result);
+    }
   }
 };
 
