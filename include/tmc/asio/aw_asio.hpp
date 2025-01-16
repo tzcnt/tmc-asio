@@ -16,18 +16,16 @@
 #include <coroutine>
 #include <tuple>
 namespace tmc {
+namespace detail {
+struct AwAsioTag {};
+} // namespace detail
 
-template <typename Awaitable, typename... ResultArgs> struct aw_asio_impl;
+template <typename Awaitable> struct aw_asio_impl;
 
 /// Base class used to implement TMC awaitables for Asio operations.
-template <typename... ResultArgs>
-class aw_asio_base : tmc::detail::AwaitTagNoGroupAsIs {
-  friend tmc::detail::awaitable_traits<aw_asio_base<ResultArgs...>>;
-
+template <typename... ResultArgs> class aw_asio_base {
 protected:
-  tmc::detail::result_storage_t<std::tuple<ResultArgs...>>* result;
-  std::coroutine_handle<> outer;
-  tmc::detail::type_erased_executor* continuation_executor;
+  tmc::detail::awaitable_customizer<std::tuple<ResultArgs...>> customizer;
   size_t prio;
 
   struct callback {
@@ -35,81 +33,82 @@ protected:
     template <typename... ResultArgs_> void operator()(ResultArgs_&&... Args) {
       if constexpr (std::is_default_constructible_v<
                       std::tuple<ResultArgs...>>) {
-        *me->result =
+        *me->customizer.result_ptr =
           std::tuple<ResultArgs...>(std::forward<ResultArgs_>(Args)...);
       } else {
-        me->result->emplace(static_cast<ResultArgs_&&>(Args)...);
+        me->customizer.result_ptr->emplace(static_cast<ResultArgs_&&>(Args)...);
       }
-      auto exec = me->continuation_executor;
-      if (exec == nullptr || tmc::detail::this_thread::exec_is(exec)) {
-        me->outer.resume();
-      } else {
-        // post_checked is redundant with the prior check at the moment
-        tmc::detail::post_checked(exec, std::move(me->outer), me->prio);
+
+      auto next = me->customizer.resume_continuation(me->prio);
+      if (next != nullptr) {
+        next.resume();
       }
     }
   };
 
-  aw_asio_impl<aw_asio_base, ResultArgs...> operator co_await() && {
-    return aw_asio_impl<aw_asio_base, ResultArgs...>(*this);
-  }
+  void async_initiate() { initiate_await(callback{this}); }
 
   virtual void initiate_await(callback Callback) = 0;
 
-  aw_asio_base()
-      : continuation_executor(tmc::detail::this_thread::executor),
-        prio(tmc::detail::this_thread::this_task.prio) {}
+  aw_asio_base() : prio(tmc::detail::this_thread::this_task.prio) {}
 
 public:
   virtual ~aw_asio_base() = default;
 };
 
 namespace detail {
-template <typename... ResultArgs>
-struct awaitable_traits<aw_asio_base<ResultArgs...>> {
 
-  using result_type = std::tuple<ResultArgs...>;
-  using self_type = tmc::aw_asio_base<ResultArgs...>;
-  using awaiter_type = tmc::aw_asio_impl<self_type, ResultArgs...>;
+template <typename T>
+concept IsAwAsio = std::is_base_of_v<tmc::detail::AwAsioTag, T>;
+
+template <IsAwAsio Awaitable> struct awaitable_traits<Awaitable> {
+  using result_type = Awaitable::result_type;
+  using self_type = Awaitable;
 
   // Values controlling the behavior when awaited directly in a tmc::task
-  static awaiter_type get_awaiter(self_type&& Awaitable) {
-    return awaiter_type(Awaitable);
+  static decltype(auto) get_awaiter(self_type&& awaitable) {
+    return std::forward<self_type>(awaitable).operator co_await();
   }
 
   // Values controlling the behavior when wrapped by a utility function
   // such as tmc::spawn_*()
-  static constexpr awaitable_mode mode = COROUTINE;
+  static constexpr awaitable_mode mode = ASYNC_INITIATE;
+  static void async_initiate(
+    self_type&& awaitable, tmc::detail::type_erased_executor* Executor,
+    size_t Priority
+  ) {
+    awaitable.async_initiate();
+  }
 
   static void set_result_ptr(
-    self_type& Awaitable,
-    tmc::detail::result_storage_t<std::tuple<ResultArgs...>>* ResultPtr
+    self_type& awaitable,
+    tmc::detail::result_storage_t<typename Awaitable::result_type>* ResultPtr
   ) {
-    Awaitable.result = ResultPtr;
+    awaitable.customizer.result_ptr = ResultPtr;
   }
 
-  static void set_continuation(self_type& Awaitable, void* Continuation) {
+  static void set_continuation(self_type& awaitable, void* Continuation) {
     // TODO use awaitable_customizer
-    Awaitable.outer = Continuation;
+    awaitable.customizer.continuation = Continuation;
   }
 
-  static void set_continuation_executor(self_type& Awaitable, void* ContExec) {
-    Awaitable.continuation_executor = ContExec;
+  static void set_continuation_executor(self_type& awaitable, void* ContExec) {
+    awaitable.customizer.continuation_executor = ContExec;
   }
 
-  // static void set_done_count(self_type& Awaitable, void* DoneCount) {
-  //   Awaitable.promise().customizer.done_count = DoneCount;
-  // }
+  static void set_done_count(self_type& awaitable, void* DoneCount) {
+    awaitable.customizer.done_count = DoneCount;
+  }
 
-  // static void set_flags(self_type& Awaitable, uint64_t Flags) {
-  //   Awaitable.promise().customizer.flags = Flags;
-  // }
+  static void set_flags(self_type& awaitable, uint64_t Flags) {
+    awaitable.customizer.flags = Flags;
+  }
 };
 } // namespace detail
 
-template <typename Awaitable, typename... ResultArgs> struct aw_asio_impl {
+template <typename Awaitable> struct aw_asio_impl {
   Awaitable& handle;
-  tmc::detail::result_storage_t<std::tuple<ResultArgs...>> result;
+  tmc::detail::result_storage_t<typename Awaitable::result_type> result;
 
   friend Awaitable;
   aw_asio_impl(Awaitable& Handle) : handle(Handle) {}
@@ -118,17 +117,16 @@ template <typename Awaitable, typename... ResultArgs> struct aw_asio_impl {
 
   TMC_FORCE_INLINE inline void await_suspend(std::coroutine_handle<> Outer
   ) noexcept {
-    tmc::detail::awaitable_traits<Awaitable>::set_continuation(
-      handle, Outer.address()
-    );
-    tmc::detail::awaitable_traits<Awaitable>::set_result_ptr(handle, &result);
-    handle.initiate_await(Awaitable::callback{&handle});
+    handle.customizer.continuation = Outer.address();
+    handle.customizer.result_ptr = &result;
+    handle.async_initiate();
   }
 
   auto await_resume() noexcept {
     // Move the result out of the optional
     // (returns tuple<Result>, not optional<tuple<Result>>)
-    if constexpr (std::is_default_constructible_v<std::tuple<ResultArgs...>>) {
+    if constexpr (std::is_default_constructible_v<
+                    typename Awaitable::result_type>) {
       return std::move(result);
     } else {
       return *std::move(result);
@@ -196,10 +194,14 @@ struct async_result<tmc::aw_asio_t, void(ResultArgs...)> {
   class aw_asio final
       : public tmc::aw_asio_base<std::decay_t<ResultArgs>...>,
         public tmc::detail::resume_on_mixin<aw_asio<Init, InitArgs...>>,
-        public tmc::detail::with_priority_mixin<aw_asio<Init, InitArgs...>> {
+        public tmc::detail::with_priority_mixin<aw_asio<Init, InitArgs...>>,
+        tmc::detail::AwAsioTag {
     friend async_result;
     friend class tmc::detail::resume_on_mixin<aw_asio<Init, InitArgs...>>;
     friend class tmc::detail::with_priority_mixin<aw_asio<Init, InitArgs...>>;
+    friend tmc::detail::awaitable_traits<aw_asio>;
+    friend tmc::aw_asio_impl<aw_asio>;
+    using result_type = std::tuple<ResultArgs...>;
 
     Init initiation;
     std::tuple<InitArgs...> init_args;
@@ -217,6 +219,10 @@ struct async_result<tmc::aw_asio_t, void(ResultArgs...)> {
         },
         std::move(init_args)
       );
+    }
+
+    tmc::aw_asio_impl<aw_asio> operator co_await() && {
+      return tmc::aw_asio_impl<aw_asio>(*this);
     }
   };
 
