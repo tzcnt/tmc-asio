@@ -29,24 +29,27 @@ protected:
   size_t prio;
 
   struct callback {
-    aw_asio_base* me;
+    // The lifetime of callback may outlive the lifetime of aw_asio, so move the
+    // customizer into it. Asio will move this callback into its own storage.
+    tmc::detail::awaitable_customizer<std::tuple<ResultArgs...>> customizer;
+    size_t prio;
     template <typename... ResultArgs_> void operator()(ResultArgs_&&... Args) {
       if constexpr (std::is_default_constructible_v<
                       std::tuple<ResultArgs...>>) {
-        *me->customizer.result_ptr =
+        *customizer.result_ptr =
           std::tuple<ResultArgs...>(std::forward<ResultArgs_>(Args)...);
       } else {
-        me->customizer.result_ptr->emplace(static_cast<ResultArgs_&&>(Args)...);
+        customizer.result_ptr->emplace(static_cast<ResultArgs_&&>(Args)...);
       }
 
-      auto next = me->customizer.resume_continuation(me->prio);
-      if (next != nullptr) {
+      auto next = customizer.resume_continuation(prio);
+      if (next != std::noop_coroutine()) {
         next.resume();
       }
     }
   };
 
-  void async_initiate() { initiate_await(callback{this}); }
+  void async_initiate() { initiate_await(callback{customizer, prio}); }
 
   virtual void initiate_await(callback Callback) = 0;
 
@@ -107,6 +110,9 @@ template <IsAwAsio Awaitable> struct awaitable_traits<Awaitable> {
 } // namespace detail
 
 template <typename Awaitable> struct aw_asio_impl {
+  // Keep an lvalue reference to handle. Depends on temporary lifetime extension
+  // when used in some contexts. Safe as long as you don't call
+  // aw_asio.operator co_await() on a temporary and try to save this for later.
   Awaitable& handle;
   tmc::detail::result_storage_t<typename Awaitable::result_type> result;
 
