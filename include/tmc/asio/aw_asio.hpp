@@ -199,6 +199,7 @@ struct async_result<tmc::aw_asio_t, void(ResultArgs...)> {
   template <typename Init, typename... InitArgs>
   class aw_asio final
       : public tmc::aw_asio_base<std::decay_t<ResultArgs>...>,
+        // TODO - resume_on doesn't work right now
         public tmc::detail::resume_on_mixin<aw_asio<Init, InitArgs...>>,
         public tmc::detail::with_priority_mixin<aw_asio<Init, InitArgs...>>,
         tmc::detail::AwAsioTag {
