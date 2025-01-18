@@ -199,8 +199,6 @@ struct async_result<tmc::aw_asio_t, void(ResultArgs...)> {
   template <typename Init, typename... InitArgs>
   class aw_asio final
       : public tmc::aw_asio_base<std::decay_t<ResultArgs>...>,
-        // TODO - resume_on doesn't work right now
-        public tmc::detail::resume_on_mixin<aw_asio<Init, InitArgs...>>,
         public tmc::detail::with_priority_mixin<aw_asio<Init, InitArgs...>>,
         tmc::detail::AwAsioTag {
     friend async_result;
@@ -230,6 +228,45 @@ struct async_result<tmc::aw_asio_t, void(ResultArgs...)> {
 
     tmc::aw_asio_impl<aw_asio> operator co_await() && {
       return tmc::aw_asio_impl<aw_asio>(*this);
+    }
+
+  public:
+    /// The wrapped task will run on the provided executor.
+    [[nodiscard]] inline aw_asio&
+    resume_on(tmc::detail::type_erased_executor* Executor) & {
+      this->customizer.continuation_executor = Executor;
+      return *this;
+    }
+    /// The wrapped task will run on the provided executor.
+    template <tmc::detail::TypeErasableExecutor Exec>
+    [[nodiscard]] aw_asio& resume_on(Exec& Executor) & {
+      this->customizer.continuation_executor = Executor.type_erased();
+      return *this;
+    }
+    /// The wrapped task will run on the provided executor.
+    template <tmc::detail::TypeErasableExecutor Exec>
+    [[nodiscard]] aw_asio& resume_on(Exec* Executor) & {
+      this->customizer.continuation_executor = Executor->type_erased();
+      return *this;
+    }
+
+    /// The wrapped task will run on the provided executor.
+    [[nodiscard]] inline aw_asio&&
+    resume_on(tmc::detail::type_erased_executor* Executor) && {
+      this->customizer.continuation_executor = Executor;
+      return std::move(*this);
+    }
+    /// The wrapped task will run on the provided executor.
+    template <tmc::detail::TypeErasableExecutor Exec>
+    [[nodiscard]] aw_asio&& resume_on(Exec& Executor) && {
+      this->customizer.continuation_executor = Executor.type_erased();
+      return std::move(*this);
+    }
+    /// The wrapped task will run on the provided executor.
+    template <tmc::detail::TypeErasableExecutor Exec>
+    [[nodiscard]] aw_asio&& resume_on(Exec* Executor) && {
+      this->customizer.continuation_executor = Executor->type_erased();
+      return std::move(*this);
     }
   };
 
