@@ -56,6 +56,10 @@ protected:
   aw_asio_base() : prio(tmc::detail::this_thread::this_task.prio) {}
 
 public:
+  aw_asio_base(const aw_asio_base&) = default;
+  aw_asio_base(aw_asio_base&&) = default;
+  aw_asio_base& operator=(const aw_asio_base&) = default;
+  aw_asio_base& operator=(aw_asio_base&&) = default;
   virtual ~aw_asio_base() = default;
 };
 
@@ -77,8 +81,9 @@ template <IsAwAsio Awaitable> struct awaitable_traits<Awaitable> {
   // such as tmc::spawn_*()
   static constexpr awaitable_mode mode = ASYNC_INITIATE;
   static void async_initiate(
-    self_type&& awaitable, tmc::detail::type_erased_executor* Executor,
-    size_t Priority
+    self_type&& awaitable,
+    [[maybe_unused]] tmc::detail::type_erased_executor* Executor,
+    [[maybe_unused]] size_t Priority
   ) {
     awaitable.async_initiate();
   }
