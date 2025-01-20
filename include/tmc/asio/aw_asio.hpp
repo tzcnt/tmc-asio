@@ -96,7 +96,6 @@ template <IsAwAsio Awaitable> struct awaitable_traits<Awaitable> {
   }
 
   static void set_continuation(self_type& awaitable, void* Continuation) {
-    // TODO use awaitable_customizer
     awaitable.customizer.continuation = Continuation;
   }
 
