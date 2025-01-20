@@ -79,7 +79,7 @@ template <IsAwAsio Awaitable> struct awaitable_traits<Awaitable> {
 
   // Values controlling the behavior when wrapped by a utility function
   // such as tmc::spawn_*()
-  static constexpr awaitable_mode mode = ASYNC_INITIATE;
+  static constexpr configure_mode mode = ASYNC_INITIATE;
   static void async_initiate(
     self_type&& awaitable,
     [[maybe_unused]] tmc::detail::type_erased_executor* Executor,
