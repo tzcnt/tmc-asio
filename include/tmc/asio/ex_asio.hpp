@@ -124,6 +124,7 @@ public:
 
 private:
   friend class aw_ex_scope_enter<ex_asio>;
+  friend tmc::detail::executor_traits<ex_asio>;
   inline std::coroutine_handle<>
   task_enter_context(std::coroutine_handle<> Outer, size_t Priority) {
     if (tmc::detail::this_thread::exec_is(&type_erased_this)) {
@@ -136,6 +137,28 @@ private:
 };
 
 namespace detail {
+template <> struct executor_traits<tmc::ex_asio> {
+  static void post(tmc::ex_asio& ex, tmc::work_item&& Item, size_t Priority) {
+    ex.post(std::move(Item), Priority);
+  }
+
+  template <typename It>
+  static void
+  post_bulk(tmc::ex_asio& ex, It&& Items, size_t Count, size_t Priority) {
+    ex.post_bulk(std::forward<It>(Items), Count, Priority);
+  }
+
+  static tmc::detail::type_erased_executor* type_erased(tmc::ex_asio& ex) {
+    return ex.type_erased();
+  }
+
+  static std::coroutine_handle<> task_enter_context(
+    tmc::ex_asio& ex, std::coroutine_handle<> Outer, size_t Priority
+  ) {
+    return ex.task_enter_context(Outer, Priority);
+  }
+};
+
 inline ex_asio g_ex_asio;
 } // namespace detail
 
