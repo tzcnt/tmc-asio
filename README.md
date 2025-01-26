@@ -6,7 +6,7 @@ See https://github.com/tzcnt/tmc-examples/tree/main/examples/asio for examples o
 This is a header-only library. It respects the following preprocessor directive configurations:
 - `TMC_USE_BOOST_ASIO`: Integrate with boost::asio instead of standalone Asio.
 
-Currently this provides only 2 files. Each file is standalone (does not depend on the other).
+This repository provides 2 headers. Each file is standalone (does not depend on the other).
 
 ### aw_asio.hpp
 Provides a completion token `tmc::aw_asio` that can be passed to any Asio async function to turn it into a TMC awaitable. The parameters that Asio would provide to a callback completion token will instead be returned as a tuple from the `co_await` expression.
@@ -30,7 +30,9 @@ tmc::task<void> handler(asio::ip::tcp::socket sock) {
 ```
 
 ### ex_asio.hpp
-Provides a global Asio executor accessible via `tmc::asio_executor()`. This executor transparently wraps an `asio::io_context`, so that it can be provided directly to any Asio calls. It also functions as a TMC executor by providing a specialization of `tmc::detail::executor_traits`.
+Provides the executor type `tmc::ex_asio`. This executor transparently wraps an `asio::io_context`, so that it can be provided directly to any Asio calls. It also functions as a TMC executor by providing a specialization of `tmc::detail::executor_traits`.
+
+A global instance of this is provided at `tmc::asio_executor()`. The global instance does not start running until `init()` is called on it - so you can choose to construct your own instance instead. Multiple instances of `tmc::ex_asio` will not conflict with each other.
 
 ```cpp
 #include "asio.hpp" // Asio library header
