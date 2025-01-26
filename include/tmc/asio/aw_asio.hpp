@@ -242,15 +242,17 @@ struct async_result<tmc::aw_asio_t, void(ResultArgs...)> {
       return *this;
     }
     /// The wrapped task will run on the provided executor.
-    template <tmc::detail::TypeErasableExecutor Exec>
+    template <typename Exec>
     [[nodiscard]] aw_asio& resume_on(Exec& Executor) & {
-      this->customizer.continuation_executor = Executor.type_erased();
+      this->customizer.continuation_executor =
+        tmc::detail::executor_traits<Exec>::type_erased(Executor);
       return *this;
     }
     /// The wrapped task will run on the provided executor.
-    template <tmc::detail::TypeErasableExecutor Exec>
+    template <typename Exec>
     [[nodiscard]] aw_asio& resume_on(Exec* Executor) & {
-      this->customizer.continuation_executor = Executor->type_erased();
+      this->customizer.continuation_executor =
+        tmc::detail::executor_traits<Exec>::type_erased(*Executor);
       return *this;
     }
 
@@ -261,15 +263,17 @@ struct async_result<tmc::aw_asio_t, void(ResultArgs...)> {
       return std::move(*this);
     }
     /// The wrapped task will run on the provided executor.
-    template <tmc::detail::TypeErasableExecutor Exec>
+    template <typename Exec>
     [[nodiscard]] aw_asio&& resume_on(Exec& Executor) && {
-      this->customizer.continuation_executor = Executor.type_erased();
+      this->customizer.continuation_executor =
+        tmc::detail::executor_traits<Exec>::type_erased(Executor);
       return std::move(*this);
     }
     /// The wrapped task will run on the provided executor.
-    template <tmc::detail::TypeErasableExecutor Exec>
+    template <typename Exec>
     [[nodiscard]] aw_asio&& resume_on(Exec* Executor) && {
-      this->customizer.continuation_executor = Executor->type_erased();
+      this->customizer.continuation_executor =
+        tmc::detail::executor_traits<Exec>::type_erased(*Executor);
       return std::move(*this);
     }
   };
