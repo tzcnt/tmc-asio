@@ -69,7 +69,7 @@ template <typename T>
 concept IsAwAsio = std::is_base_of_v<tmc::detail::AwAsioTag, T>;
 
 template <IsAwAsio Awaitable> struct awaitable_traits<Awaitable> {
-  using result_type = Awaitable::result_type;
+  using result_type = typename Awaitable::result_type;
   using self_type = Awaitable;
 
   // Values controlling the behavior when awaited directly in a tmc::task
