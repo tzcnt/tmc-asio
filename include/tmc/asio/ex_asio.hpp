@@ -99,7 +99,7 @@ public:
 #ifdef TMC_USE_BOOST_ASIO
     boost::asio::post(ioc.get_executor(), item);
 #else
-    asio::post(ioc.get_executor(), Item);
+    asio::post(ioc.get_executor(), std::move(Item));
 #endif
   }
 
@@ -109,7 +109,7 @@ public:
 #ifdef TMC_USE_BOOST_ASIO
       boost::asio::post(ioc.get_executor(), *Items);
 #else
-      asio::post(ioc.get_executor(), *Items);
+      asio::post(ioc.get_executor(), std::move(*Items));
 #endif
       ++Items;
     }
