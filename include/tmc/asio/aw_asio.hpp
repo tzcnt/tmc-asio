@@ -8,6 +8,7 @@
 // https://github.com/boostorg/cobalt/blob/develop/include/boost/cobalt/op.hpp
 
 #pragma once
+#include "tmc/detail/compat.hpp"
 #include "tmc/detail/concepts.hpp" // IWYU pragma: keep
 #include "tmc/detail/mixins.hpp"
 #include "tmc/detail/thread_locals.hpp"
