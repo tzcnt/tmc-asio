@@ -97,7 +97,7 @@ public:
 
   inline void post(work_item&& Item, [[maybe_unused]] size_t Priority) {
 #ifdef TMC_USE_BOOST_ASIO
-    boost::asio::post(ioc.get_executor(), item);
+    boost::asio::post(ioc.get_executor(), std::move(Item));
 #else
     asio::post(ioc.get_executor(), std::move(Item));
 #endif
@@ -107,7 +107,7 @@ public:
   void post_bulk(It Items, size_t Count, [[maybe_unused]] size_t Priority) {
     for (size_t i = 0; i < Count; ++i) {
 #ifdef TMC_USE_BOOST_ASIO
-      boost::asio::post(ioc.get_executor(), *Items);
+      boost::asio::post(ioc.get_executor(), std::move(*Items));
 #else
       asio::post(ioc.get_executor(), std::move(*Items));
 #endif
