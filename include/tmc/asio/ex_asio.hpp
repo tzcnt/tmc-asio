@@ -9,13 +9,14 @@
 #include <asio/any_io_executor.hpp>
 #include <asio/io_context.hpp>
 #include <asio/post.hpp>
+#include <functional>
 #include <thread>
 
 namespace tmc {
 class ex_asio {
   struct InitParams {
-    void (*thread_init_hook)(size_t) = nullptr;
-    void (*thread_teardown_hook)(size_t) = nullptr;
+    std::function<void(size_t)> thread_init_hook = nullptr;
+    std::function<void(size_t)> thread_teardown_hook = nullptr;
   };
   InitParams* init_params = nullptr;
 
@@ -65,12 +66,8 @@ public:
     ioc.get_executor().on_work_started();
 
     InitParams params;
-    if (init_params != nullptr && init_params->thread_init_hook != nullptr) {
-      params.thread_init_hook = init_params->thread_init_hook;
-    }
-    if (init_params != nullptr &&
-        init_params->thread_teardown_hook != nullptr) {
-      params.thread_teardown_hook = init_params->thread_teardown_hook;
+    if (init_params != nullptr) {
+      params = *init_params;
     }
 
     ioc_thread = std::jthread([this, params]() {
