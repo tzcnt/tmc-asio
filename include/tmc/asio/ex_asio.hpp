@@ -9,12 +9,14 @@
 #include <asio/any_io_executor.hpp>
 #include <asio/io_context.hpp>
 #include <asio/post.hpp>
+#include <functional>
 #include <thread>
 
 namespace tmc {
 class ex_asio {
   struct InitParams {
-    void (*thread_init_hook)(size_t) = nullptr;
+    std::function<void(size_t)> thread_init_hook = nullptr;
+    std::function<void(size_t)> thread_teardown_hook = nullptr;
   };
   InitParams* init_params = nullptr;
 
@@ -31,12 +33,24 @@ public:
 
   /// Hook will be invoked at the startup of each thread owned by this executor,
   /// and passed the ordinal index (0..thread_count()-1) of the thread.
-  inline ex_asio& set_thread_init_hook(void (*Hook)(size_t)) {
+  inline ex_asio& set_thread_init_hook(std::function<void(size_t)> Hook) {
     assert(!is_initialized);
     if (init_params == nullptr) {
       init_params = new InitParams;
     }
-    init_params->thread_init_hook = Hook;
+    init_params->thread_init_hook = std::move(Hook);
+    return *this;
+  }
+
+  /// Hook will be invoked before destruction of each thread owned by this
+  /// executor, and passed the ordinal index (0..thread_count()-1) of the
+  /// thread.
+  inline ex_asio& set_thread_teardown_hook(std::function<void(size_t)> Hook) {
+    assert(!is_initialized);
+    if (init_params == nullptr) {
+      init_params = new InitParams;
+    }
+    init_params->thread_teardown_hook = std::move(Hook);
     return *this;
   }
 
@@ -50,9 +64,26 @@ public:
     }
     // replaces need for an executor_work_guard
     ioc.get_executor().on_work_started();
-    ioc_thread = std::jthread([this]() {
-      init_thread_locals(0);
+
+    InitParams params;
+    if (init_params != nullptr) {
+      params = *init_params;
+    }
+
+    ioc_thread = std::jthread([this, params]() {
+      // Setup
+      init_thread_locals();
+      if (params.thread_init_hook != nullptr) {
+        params.thread_init_hook(0);
+      }
+
+      // Run loop
       ioc.run();
+
+      // Teardown
+      if (params.thread_teardown_hook != nullptr) {
+        params.thread_teardown_hook(0);
+      }
     });
 
     if (init_params != nullptr) {
@@ -80,13 +111,10 @@ public:
   inline tmc::detail::type_erased_executor* type_erased() {
     return &type_erased_this;
   }
-  inline void init_thread_locals(size_t Slot) {
+  inline void init_thread_locals() {
     tmc::detail::this_thread::executor = &type_erased_this;
     // tmc::detail::this_thread::this_task = {.prio = 0, .yield_priority =
     // &yield_priority[slot]};
-    if (init_params != nullptr && init_params->thread_init_hook != nullptr) {
-      init_params->thread_init_hook(Slot);
-    }
   }
 
   inline void clear_thread_locals() {
