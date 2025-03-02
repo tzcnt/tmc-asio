@@ -15,6 +15,7 @@ namespace tmc {
 class ex_asio {
   struct InitParams {
     void (*thread_init_hook)(size_t) = nullptr;
+    void (*thread_teardown_hook)(size_t) = nullptr;
   };
   InitParams* init_params = nullptr;
 
@@ -40,6 +41,18 @@ public:
     return *this;
   }
 
+  /// Hook will be invoked before destruction of each thread owned by this
+  /// executor, and passed the ordinal index (0..thread_count()-1) of the
+  /// thread.
+  inline ex_asio& set_thread_teardown_hook(void (*Hook)(size_t)) {
+    assert(!is_initialized);
+    if (init_params == nullptr) {
+      init_params = new InitParams;
+    }
+    init_params->thread_teardown_hook = Hook;
+    return *this;
+  }
+
   inline void init([[maybe_unused]] int ThreadCount = 1) {
     if (is_initialized) {
       return;
@@ -50,9 +63,30 @@ public:
     }
     // replaces need for an executor_work_guard
     ioc.get_executor().on_work_started();
-    ioc_thread = std::jthread([this]() {
-      init_thread_locals(0);
+
+    InitParams params;
+    if (init_params != nullptr && init_params->thread_init_hook != nullptr) {
+      params.thread_init_hook = init_params->thread_init_hook;
+    }
+    if (init_params != nullptr &&
+        init_params->thread_teardown_hook != nullptr) {
+      params.thread_teardown_hook = init_params->thread_teardown_hook;
+    }
+
+    ioc_thread = std::jthread([this, params]() {
+      // Setup
+      init_thread_locals();
+      if (params.thread_init_hook != nullptr) {
+        params.thread_init_hook(0);
+      }
+
+      // Run loop
       ioc.run();
+
+      // Teardown
+      if (params.thread_teardown_hook != nullptr) {
+        params.thread_teardown_hook(0);
+      }
     });
 
     if (init_params != nullptr) {
@@ -80,13 +114,10 @@ public:
   inline tmc::detail::type_erased_executor* type_erased() {
     return &type_erased_this;
   }
-  inline void init_thread_locals(size_t Slot) {
+  inline void init_thread_locals() {
     tmc::detail::this_thread::executor = &type_erased_this;
     // tmc::detail::this_thread::this_task = {.prio = 0, .yield_priority =
     // &yield_priority[slot]};
-    if (init_params != nullptr && init_params->thread_init_hook != nullptr) {
-      init_params->thread_init_hook(Slot);
-    }
   }
 
   inline void clear_thread_locals() {
