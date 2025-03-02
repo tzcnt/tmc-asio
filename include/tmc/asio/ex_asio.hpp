@@ -33,24 +33,24 @@ public:
 
   /// Hook will be invoked at the startup of each thread owned by this executor,
   /// and passed the ordinal index (0..thread_count()-1) of the thread.
-  inline ex_asio& set_thread_init_hook(void (*Hook)(size_t)) {
+  inline ex_asio& set_thread_init_hook(std::function<void(size_t)> Hook) {
     assert(!is_initialized);
     if (init_params == nullptr) {
       init_params = new InitParams;
     }
-    init_params->thread_init_hook = Hook;
+    init_params->thread_init_hook = std::move(Hook);
     return *this;
   }
 
   /// Hook will be invoked before destruction of each thread owned by this
   /// executor, and passed the ordinal index (0..thread_count()-1) of the
   /// thread.
-  inline ex_asio& set_thread_teardown_hook(void (*Hook)(size_t)) {
+  inline ex_asio& set_thread_teardown_hook(std::function<void(size_t)> Hook) {
     assert(!is_initialized);
     if (init_params == nullptr) {
       init_params = new InitParams;
     }
-    init_params->thread_teardown_hook = Hook;
+    init_params->thread_teardown_hook = std::move(Hook);
     return *this;
   }
 
