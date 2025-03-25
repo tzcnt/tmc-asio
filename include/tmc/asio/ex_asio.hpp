@@ -123,8 +123,10 @@ public:
   }
   inline void graceful_stop() { ioc.stop(); }
 
-  inline void
-  post(work_item&& Item, [[maybe_unused]] size_t Priority, size_t ThreadHint) {
+  inline void post(
+    work_item&& Item, [[maybe_unused]] size_t Priority = 0,
+    [[maybe_unused]] size_t ThreadHint = TMC_ALL_ONES
+  ) {
 #ifdef TMC_USE_BOOST_ASIO
     boost::asio::post(ioc.get_executor(), std::move(Item));
 #else
@@ -134,7 +136,8 @@ public:
 
   template <typename It>
   void post_bulk(
-    It Items, size_t Count, [[maybe_unused]] size_t Priority, size_t ThreadHint
+    It Items, size_t Count, [[maybe_unused]] size_t Priority = 0,
+    [[maybe_unused]] size_t ThreadHint = TMC_ALL_ONES
   ) {
     for (size_t i = 0; i < Count; ++i) {
 #ifdef TMC_USE_BOOST_ASIO
@@ -170,15 +173,16 @@ private:
 namespace detail {
 template <> struct executor_traits<tmc::ex_asio> {
   static inline void post(
-    tmc::ex_asio& ex, tmc::work_item&& Item, size_t Priority, size_t ThreadHint
+    tmc::ex_asio& ex, tmc::work_item&& Item, size_t Priority = 0,
+    size_t ThreadHint = TMC_ALL_ONES
   ) {
     ex.post(std::move(Item), Priority, ThreadHint);
   }
 
   template <typename It>
   static inline void post_bulk(
-    tmc::ex_asio& ex, It&& Items, size_t Count, size_t Priority,
-    size_t ThreadHint
+    tmc::ex_asio& ex, It&& Items, size_t Count, size_t Priority = 0,
+    size_t ThreadHint = TMC_ALL_ONES
   ) {
     ex.post_bulk(std::forward<It>(Items), Count, Priority, ThreadHint);
   }
