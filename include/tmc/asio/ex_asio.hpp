@@ -10,6 +10,7 @@
 #include <asio/any_io_executor.hpp>
 #include <asio/io_context.hpp>
 #include <asio/post.hpp>
+#include <cassert>
 #include <functional>
 #include <thread>
 
