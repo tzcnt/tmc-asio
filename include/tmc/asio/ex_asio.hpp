@@ -5,10 +5,12 @@
 
 #pragma once
 #include "tmc/aw_resume_on.hpp"
+#include "tmc/detail/compat.hpp"
 #include "tmc/detail/thread_locals.hpp"
 #include <asio/any_io_executor.hpp>
 #include <asio/io_context.hpp>
 #include <asio/post.hpp>
+#include <cassert>
 #include <functional>
 #include <thread>
 
@@ -123,7 +125,10 @@ public:
   }
   inline void graceful_stop() { ioc.stop(); }
 
-  inline void post(work_item&& Item, [[maybe_unused]] size_t Priority) {
+  inline void post(
+    work_item&& Item, [[maybe_unused]] size_t Priority = 0,
+    [[maybe_unused]] size_t ThreadHint = NO_HINT
+  ) {
 #ifdef TMC_USE_BOOST_ASIO
     boost::asio::post(ioc.get_executor(), std::move(Item));
 #else
@@ -132,7 +137,10 @@ public:
   }
 
   template <typename It>
-  void post_bulk(It Items, size_t Count, [[maybe_unused]] size_t Priority) {
+  void post_bulk(
+    It Items, size_t Count, [[maybe_unused]] size_t Priority = 0,
+    [[maybe_unused]] size_t ThreadHint = NO_HINT
+  ) {
     for (size_t i = 0; i < Count; ++i) {
 #ifdef TMC_USE_BOOST_ASIO
       boost::asio::post(ioc.get_executor(), std::move(*Items));
@@ -166,15 +174,18 @@ private:
 
 namespace detail {
 template <> struct executor_traits<tmc::ex_asio> {
-  static inline void
-  post(tmc::ex_asio& ex, tmc::work_item&& Item, size_t Priority) {
-    ex.post(std::move(Item), Priority);
+  static inline void post(
+    tmc::ex_asio& ex, tmc::work_item&& Item, size_t Priority, size_t ThreadHint
+  ) {
+    ex.post(std::move(Item), Priority, ThreadHint);
   }
 
   template <typename It>
-  static inline void
-  post_bulk(tmc::ex_asio& ex, It&& Items, size_t Count, size_t Priority) {
-    ex.post_bulk(std::forward<It>(Items), Count, Priority);
+  static inline void post_bulk(
+    tmc::ex_asio& ex, It&& Items, size_t Count, size_t Priority,
+    size_t ThreadHint
+  ) {
+    ex.post_bulk(std::forward<It>(Items), Count, Priority, ThreadHint);
   }
 
   static inline tmc::detail::type_erased_executor* type_erased(tmc::ex_asio& ex
