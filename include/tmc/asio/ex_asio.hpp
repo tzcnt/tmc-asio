@@ -5,6 +5,7 @@
 
 #pragma once
 #include "tmc/aw_resume_on.hpp"
+#include "tmc/detail/compat.hpp"
 #include "tmc/detail/thread_locals.hpp"
 #include <asio/any_io_executor.hpp>
 #include <asio/io_context.hpp>
@@ -125,7 +126,7 @@ public:
 
   inline void post(
     work_item&& Item, [[maybe_unused]] size_t Priority = 0,
-    [[maybe_unused]] size_t ThreadHint = TMC_ALL_ONES
+    [[maybe_unused]] size_t ThreadHint = NO_HINT
   ) {
 #ifdef TMC_USE_BOOST_ASIO
     boost::asio::post(ioc.get_executor(), std::move(Item));
@@ -137,7 +138,7 @@ public:
   template <typename It>
   void post_bulk(
     It Items, size_t Count, [[maybe_unused]] size_t Priority = 0,
-    [[maybe_unused]] size_t ThreadHint = TMC_ALL_ONES
+    [[maybe_unused]] size_t ThreadHint = NO_HINT
   ) {
     for (size_t i = 0; i < Count; ++i) {
 #ifdef TMC_USE_BOOST_ASIO
