@@ -30,7 +30,7 @@ public:
 #endif
   ioc_t ioc;
   std::jthread ioc_thread;
-  tmc::detail::ex_any type_erased_this;
+  tmc::ex_any type_erased_this;
   bool is_initialized;
 
   /// Hook will be invoked at the startup of each thread owned by this executor,
@@ -110,7 +110,7 @@ public:
     init(ThreadCount);
   }
   inline ~ex_asio() { teardown(); }
-  inline tmc::detail::ex_any* type_erased() { return &type_erased_this; }
+  inline tmc::ex_any* type_erased() { return &type_erased_this; }
   inline void init_thread_locals() {
     tmc::detail::this_thread::executor = &type_erased_this;
     // tmc::detail::this_thread::this_task = {.prio = 0, .yield_priority =
@@ -186,7 +186,7 @@ template <> struct executor_traits<tmc::ex_asio> {
     ex.post_bulk(std::forward<It>(Items), Count, Priority, ThreadHint);
   }
 
-  static inline tmc::detail::ex_any* type_erased(tmc::ex_asio& ex) {
+  static inline tmc::ex_any* type_erased(tmc::ex_asio& ex) {
     return ex.type_erased();
   }
 
