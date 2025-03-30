@@ -82,8 +82,7 @@ template <IsAwAsio Awaitable> struct awaitable_traits<Awaitable> {
   // such as tmc::spawn_*()
   static constexpr configure_mode mode = ASYNC_INITIATE;
   static void async_initiate(
-    self_type&& awaitable,
-    [[maybe_unused]] tmc::detail::type_erased_executor* Executor,
+    self_type&& awaitable, [[maybe_unused]] tmc::detail::ex_any* Executor,
     [[maybe_unused]] size_t Priority
   ) {
     awaitable.async_initiate();
@@ -237,8 +236,7 @@ struct async_result<tmc::aw_asio_t, void(ResultArgs...)> {
 
   public:
     /// The wrapped task will run on the provided executor.
-    [[nodiscard]] inline aw_asio&
-    resume_on(tmc::detail::type_erased_executor* Executor) & {
+    [[nodiscard]] inline aw_asio& resume_on(tmc::detail::ex_any* Executor) & {
       this->customizer.continuation_executor = Executor;
       return *this;
     }
@@ -258,8 +256,7 @@ struct async_result<tmc::aw_asio_t, void(ResultArgs...)> {
     }
 
     /// The wrapped task will run on the provided executor.
-    [[nodiscard]] inline aw_asio&&
-    resume_on(tmc::detail::type_erased_executor* Executor) && {
+    [[nodiscard]] inline aw_asio&& resume_on(tmc::detail::ex_any* Executor) && {
       this->customizer.continuation_executor = Executor;
       return std::move(*this);
     }
