@@ -30,7 +30,7 @@ public:
 #endif
   ioc_t ioc;
   std::jthread ioc_thread;
-  tmc::detail::type_erased_executor type_erased_this;
+  tmc::ex_any type_erased_this;
   bool is_initialized;
 
   /// Hook will be invoked at the startup of each thread owned by this executor,
@@ -56,6 +56,16 @@ public:
     return *this;
   }
 
+private:
+  inline void init_thread_locals() {
+    tmc::detail::this_thread::executor = &type_erased_this;
+  }
+
+  inline void clear_thread_locals() {
+    tmc::detail::this_thread::executor = nullptr;
+  }
+
+public:
   inline void init([[maybe_unused]] int ThreadCount = 1) {
     if (is_initialized) {
       return;
@@ -110,19 +120,13 @@ public:
     init(ThreadCount);
   }
   inline ~ex_asio() { teardown(); }
-  inline tmc::detail::type_erased_executor* type_erased() {
-    return &type_erased_this;
-  }
-  inline void init_thread_locals() {
-    tmc::detail::this_thread::executor = &type_erased_this;
-    // tmc::detail::this_thread::this_task = {.prio = 0, .yield_priority =
-    // &yield_priority[slot]};
-  }
 
-  inline void clear_thread_locals() {
-    tmc::detail::this_thread::executor = nullptr;
-    // tmc::detail::this_thread::this_task = {};
-  }
+  /// Returns a pointer to the type erased `ex_any` version of this executor.
+  /// This object shares a lifetime with this executor, and can be used for
+  /// pointer-based equality comparison against the thread-local
+  /// `tmc::current_executor()`.
+  inline tmc::ex_any* type_erased() { return &type_erased_this; }
+
   inline void graceful_stop() { ioc.stop(); }
 
   inline void post(
@@ -188,8 +192,7 @@ template <> struct executor_traits<tmc::ex_asio> {
     ex.post_bulk(std::forward<It>(Items), Count, Priority, ThreadHint);
   }
 
-  static inline tmc::detail::type_erased_executor* type_erased(tmc::ex_asio& ex
-  ) {
+  static inline tmc::ex_any* type_erased(tmc::ex_asio& ex) {
     return ex.type_erased();
   }
 
