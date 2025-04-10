@@ -7,9 +7,13 @@
 #include "tmc/aw_resume_on.hpp"
 #include "tmc/detail/compat.hpp"
 #include "tmc/detail/thread_locals.hpp"
+#include "tmc/ex_any.hpp"
+#include "tmc/work_item.hpp"
+
 #include <asio/any_io_executor.hpp>
 #include <asio/io_context.hpp>
 #include <asio/post.hpp>
+
 #include <cassert>
 #include <functional>
 #include <thread>
