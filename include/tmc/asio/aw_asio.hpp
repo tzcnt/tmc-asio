@@ -8,12 +8,12 @@
 // https://github.com/boostorg/cobalt/blob/develop/include/boost/cobalt/op.hpp
 
 #pragma once
+#include "tmc/detail/awaitable_customizer.hpp"
 #include "tmc/detail/compat.hpp"
-#include "tmc/detail/concepts.hpp" // IWYU pragma: keep
+#include "tmc/detail/concepts_awaitable.hpp" // IWYU pragma: keep
 #include "tmc/detail/mixins.hpp"
 #include "tmc/detail/thread_locals.hpp"
 #include "tmc/ex_any.hpp"
-#include "tmc/task.hpp"
 
 #include <asio/async_result.hpp>
 
