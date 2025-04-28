@@ -70,7 +70,7 @@ private:
   }
 
 public:
-  inline void init([[maybe_unused]] int ThreadCount = 1) {
+  inline void init() {
     if (is_initialized) {
       return;
     }
@@ -119,10 +119,6 @@ public:
   }
 
   inline ex_asio() : ioc(1), type_erased_this(this), is_initialized(false) {}
-  inline ex_asio(int ThreadCount)
-      : ioc(ThreadCount), type_erased_this(this), is_initialized(false) {
-    init(ThreadCount);
-  }
   inline ~ex_asio() { teardown(); }
 
   /// Returns a pointer to the type erased `ex_any` version of this executor.
