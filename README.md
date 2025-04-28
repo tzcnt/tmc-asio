@@ -30,7 +30,7 @@ tmc::task<void> handler(asio::ip::tcp::socket sock) {
 ```
 
 ### ex_asio.hpp
-Provides the executor type `tmc::ex_asio`. This executor transparently wraps an `asio::io_context`, so that it can be provided directly to any Asio calls. It also functions as a TMC executor by providing a specialization of `tmc::detail::executor_traits`.
+Provides the executor type `tmc::ex_asio`. This executor transparently wraps a single-threaded `asio::io_context`, so that it can be provided directly to any Asio calls. It also functions as a TMC executor by providing a specialization of `tmc::detail::executor_traits`.
 
 A global instance of this is provided at `tmc::asio_executor()`. The global instance does not start running until `init()` is called on it - so you can choose to construct your own instance instead. Multiple instances of `tmc::ex_asio` will not conflict with each other.
 
