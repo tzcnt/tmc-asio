@@ -6,6 +6,7 @@
 #pragma once
 #include "tmc/aw_resume_on.hpp"
 #include "tmc/detail/compat.hpp"
+#include "tmc/detail/concepts_work_item.hpp"
 #include "tmc/detail/thread_locals.hpp"
 #include "tmc/ex_any.hpp"
 #include "tmc/work_item.hpp"
@@ -130,13 +131,25 @@ public:
   inline void graceful_stop() { ioc.stop(); }
 
   inline void post(
-    work_item&& Item, [[maybe_unused]] size_t Priority = 0,
+    work_item&& Item, size_t Priority = 0,
     [[maybe_unused]] size_t ThreadHint = NO_HINT
   ) {
 #ifdef TMC_USE_BOOST_ASIO
-    boost::asio::post(ioc.get_executor(), std::move(Item));
+    boost::asio::post(
+      ioc.get_executor(),
+      [Priority, Item = std::move(Item)]() mutable -> void {
+        tmc::detail::this_thread::this_task.prio = Priority;
+        Item();
+      }
+    );
 #else
-    asio::post(ioc.get_executor(), std::move(Item));
+    asio::post(
+      ioc.get_executor(),
+      [Priority, Item = std::move(Item)]() mutable -> void {
+        tmc::detail::this_thread::this_task.prio = Priority;
+        Item();
+      }
+    );
 #endif
   }
 
@@ -147,9 +160,23 @@ public:
   ) {
     for (size_t i = 0; i < Count; ++i) {
 #ifdef TMC_USE_BOOST_ASIO
-      boost::asio::post(ioc.get_executor(), std::move(*Items));
+      boost::asio::post(
+        ioc.get_executor(),
+        [Priority, Item = tmc::detail::into_work_item(std::move(*Items))](
+        ) mutable -> void {
+          tmc::detail::this_thread::this_task.prio = Priority;
+          Item();
+        }
+      );
 #else
-      asio::post(ioc.get_executor(), std::move(*Items));
+      asio::post(
+        ioc.get_executor(),
+        [Priority, Item = tmc::detail::into_work_item(std::move(*Items))](
+        ) mutable -> void {
+          tmc::detail::this_thread::this_task.prio = Priority;
+          Item();
+        }
+      );
 #endif
       ++Items;
     }
