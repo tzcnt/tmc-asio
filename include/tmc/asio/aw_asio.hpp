@@ -11,8 +11,6 @@
 #include "tmc/detail/awaitable_customizer.hpp"
 #include "tmc/detail/compat.hpp"
 #include "tmc/detail/concepts_awaitable.hpp" // IWYU pragma: keep
-#include "tmc/detail/mixins.hpp"
-#include "tmc/detail/thread_locals.hpp"
 #include "tmc/ex_any.hpp"
 
 #include <asio/async_result.hpp>
@@ -31,13 +29,11 @@ template <typename Awaitable> struct aw_asio_impl;
 template <typename... ResultArgs> class aw_asio_base {
 protected:
   tmc::detail::awaitable_customizer<std::tuple<ResultArgs...>> customizer;
-  size_t prio;
 
   struct callback {
     // The lifetime of callback may outlive the lifetime of aw_asio, so move the
     // customizer into it. Asio will move this callback into its own storage.
     tmc::detail::awaitable_customizer<std::tuple<ResultArgs...>> customizer;
-    size_t prio;
     template <typename... ResultArgs_> void operator()(ResultArgs_&&... Args) {
       if constexpr (std::is_default_constructible_v<
                       std::tuple<ResultArgs...>>) {
@@ -47,18 +43,18 @@ protected:
         customizer.result_ptr->emplace(static_cast<ResultArgs_&&>(Args)...);
       }
 
-      auto next = customizer.resume_continuation(prio);
+      auto next = customizer.resume_continuation();
       if (next != std::noop_coroutine()) {
         next.resume();
       }
     }
   };
 
-  void async_initiate() { initiate_await(callback{customizer, prio}); }
+  void async_initiate() { initiate_await(callback{customizer}); }
 
   virtual void initiate_await(callback Callback) = 0;
 
-  aw_asio_base() : prio(tmc::detail::this_thread::this_task.prio) {}
+  aw_asio_base() {}
 
 public:
   aw_asio_base(const aw_asio_base&) = default;
@@ -69,7 +65,6 @@ public:
 };
 
 namespace detail {
-
 template <typename T>
 concept IsAwAsio = std::is_base_of_v<tmc::detail::AwAsioTag, T>;
 
@@ -205,13 +200,9 @@ template <typename... ResultArgs>
 struct async_result<tmc::aw_asio_t, void(ResultArgs...)> {
   /// TMC awaitable for an Asio operation
   template <typename Init, typename... InitArgs>
-  class aw_asio final
-      : public tmc::aw_asio_base<std::decay_t<ResultArgs>...>,
-        public tmc::detail::with_priority_mixin<aw_asio<Init, InitArgs...>>,
-        tmc::detail::AwAsioTag {
+  class aw_asio final : public tmc::aw_asio_base<std::decay_t<ResultArgs>...>,
+                        tmc::detail::AwAsioTag {
     friend async_result;
-    friend class tmc::detail::resume_on_mixin<aw_asio<Init, InitArgs...>>;
-    friend class tmc::detail::with_priority_mixin<aw_asio<Init, InitArgs...>>;
     friend tmc::detail::awaitable_traits<aw_asio>;
     friend tmc::aw_asio_impl<aw_asio>;
     using result_type = std::tuple<ResultArgs...>;
