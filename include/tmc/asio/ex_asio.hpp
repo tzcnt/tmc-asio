@@ -194,7 +194,8 @@ private:
   friend tmc::detail::executor_traits<ex_asio>;
   inline std::coroutine_handle<>
   task_enter_context(std::coroutine_handle<> Outer, size_t Priority) {
-    if (tmc::detail::this_thread::exec_is(&type_erased_this)) {
+    if (tmc::detail::this_thread::exec_is(&type_erased_this) &&
+        tmc::detail::this_thread::prio_is(Priority)) {
       return Outer;
     } else {
       post(std::move(Outer), Priority);
