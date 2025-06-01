@@ -13,7 +13,11 @@
 #include "tmc/detail/concepts_awaitable.hpp" // IWYU pragma: keep
 #include "tmc/ex_any.hpp"
 
+#ifdef TMC_USE_BOOST_ASIO
+#include <boost/asio/async_result.hpp>
+#else
 #include <asio/async_result.hpp>
+#endif
 
 #include <coroutine>
 #include <tuple>
