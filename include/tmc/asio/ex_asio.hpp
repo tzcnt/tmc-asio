@@ -11,9 +11,15 @@
 #include "tmc/ex_any.hpp"
 #include "tmc/work_item.hpp"
 
+#ifdef TMC_USE_BOOST_ASIO
+#include <boost/asio/any_io_executor.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/post.hpp>
+#else
 #include <asio/any_io_executor.hpp>
 #include <asio/io_context.hpp>
 #include <asio/post.hpp>
+#endif
 
 #include <cassert>
 #include <functional>
@@ -187,7 +193,11 @@ public:
   // or the specialized io_context executor
   using executor_type = ioc_t::executor_type;
   inline operator executor_type() { return ioc.get_executor(); }
+#ifdef TMC_USE_BOOST_ASIO
+  inline operator boost::asio::any_io_executor() { return ioc.get_executor(); }
+#else
   inline operator asio::any_io_executor() { return ioc.get_executor(); }
+#endif
 
 private:
   friend class aw_ex_scope_enter<ex_asio>;
