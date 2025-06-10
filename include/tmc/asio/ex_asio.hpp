@@ -22,6 +22,7 @@
 #endif
 
 #include <cassert>
+#include <coroutine>
 #include <functional>
 #include <thread>
 
