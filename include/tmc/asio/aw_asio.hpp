@@ -9,7 +9,6 @@
 
 #pragma once
 #include "tmc/detail/awaitable_customizer.hpp"
-#include "tmc/detail/compat.hpp"
 #include "tmc/detail/concepts_awaitable.hpp" // IWYU pragma: keep
 #include "tmc/ex_any.hpp"
 
