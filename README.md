@@ -24,7 +24,7 @@ For example:
 tmc::task<void> handler(asio::ip::tcp::socket sock) {
   char data[4096];
   auto buf = asio::buffer(data);
-  auto [error, bytes_read] = co_await socket.async_read_some(buf, tmc::aw_asio);
+  auto [error, bytes_read] = co_await sock.async_read_some(buf, tmc::aw_asio);
   // Do something with buf...
 }
 ```
@@ -37,21 +37,28 @@ A global instance of this is provided at `tmc::asio_executor()`. The global inst
 ```cpp
 #include "asio.hpp" // Asio library header
 #include "tmc/ex_cpu.hpp"
+#include "tmc/fork_group.hpp"
 #include "tmc/task.hpp"
 #include "tmc/asio/aw_asio.hpp"
 #include "tmc/asio/ex_asio.hpp"
 int main() {
   tmc::asio_executor().init();
   return tmc::async_main([]() -> tmc::task<int> {
+    auto fg = tmc::fork_group();
+
     asio::ip::tcp::acceptor acceptor(tmc::asio_executor(), {asio::ip::tcp::v4(), 55555});
     while (true) {
       auto [error, sock] = co_await acceptor.async_accept(tmc::aw_asio);
       if (error) {
         break;
       }
-      // Spawn the handler function from the prior aw_asio example as a detached coroutine.
-      tmc::spawn(handler(std::move(sock)));
+      // Fork the handler from the prior example, which starts running concurrently.
+      // This task's loop will continue and accept more connections.
+      fg.fork(handler(std::move(sock)));
     }
+
+    // Wait for all handlers to complete before returning.
+    co_await std::move(fg);
 
     co_return 0;
   }());
