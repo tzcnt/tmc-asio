@@ -143,18 +143,16 @@ public:
   ) {
 #ifdef TMC_USE_BOOST_ASIO
     boost::asio::post(
-      ioc.get_executor(),
-      [Priority, Item = std::move(Item)]() mutable -> void {
+      ioc.get_executor(), [Priority, item = std::move(Item)]() mutable -> void {
         tmc::detail::this_thread::this_task.prio = Priority;
-        Item();
+        item();
       }
     );
 #else
     asio::post(
-      ioc.get_executor(),
-      [Priority, Item = std::move(Item)]() mutable -> void {
+      ioc.get_executor(), [Priority, item = std::move(Item)]() mutable -> void {
         tmc::detail::this_thread::this_task.prio = Priority;
-        Item();
+        item();
       }
     );
 #endif
@@ -169,8 +167,9 @@ public:
 #ifdef TMC_USE_BOOST_ASIO
       boost::asio::post(
         ioc.get_executor(),
-        [Priority, Item = tmc::detail::into_work_item(std::move(*Items))](
-        ) mutable -> void {
+        [Priority,
+         Item =
+           tmc::detail::into_work_item(std::move(*Items))]() mutable -> void {
           tmc::detail::this_thread::this_task.prio = Priority;
           Item();
         }
@@ -178,8 +177,9 @@ public:
 #else
       asio::post(
         ioc.get_executor(),
-        [Priority, Item = tmc::detail::into_work_item(std::move(*Items))](
-        ) mutable -> void {
+        [Priority,
+         Item =
+           tmc::detail::into_work_item(std::move(*Items))]() mutable -> void {
           tmc::detail::this_thread::this_task.prio = Priority;
           Item();
         }
