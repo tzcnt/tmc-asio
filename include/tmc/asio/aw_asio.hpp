@@ -203,7 +203,7 @@ struct async_result<tmc::aw_asio_t, void(ResultArgs...)> {
   /// TMC awaitable for an Asio operation
   template <typename Init, typename... InitArgs>
   class aw_asio final : public tmc::aw_asio_base<std::decay_t<ResultArgs>...>,
-    tmc::detail::AwAsioTag {
+                        tmc::detail::AwAsioTag {
     friend async_result;
     friend tmc::detail::awaitable_traits<aw_asio>;
     friend tmc::aw_asio_impl<aw_asio>;
