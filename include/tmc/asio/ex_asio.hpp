@@ -27,6 +27,9 @@
 #include <thread>
 
 namespace tmc {
+/// A wrapper over `asio::io_context` with a single executor thread.
+/// It is both a TooManyCooks executor and an Asio executor,
+/// so it can be passed to functions from either library.
 class ex_asio {
   struct InitParams {
     std::function<void(size_t)> thread_init_hook = nullptr;
@@ -45,8 +48,9 @@ public:
   tmc::ex_any type_erased_this;
   bool is_initialized;
 
-  /// Hook will be invoked at the startup of each thread owned by this executor,
-  /// and passed the ordinal index (0..thread_count()-1) of the thread.
+  /// Hook will be invoked at the startup of the executor thread, and passed
+  /// the ordinal index of the thread (which is always 0, since this is a
+  /// single-threaded executor).
   inline ex_asio& set_thread_init_hook(std::function<void(size_t)> Hook) {
     assert(!is_initialized);
     if (init_params == nullptr) {
@@ -57,8 +61,8 @@ public:
   }
 
   /// Hook will be invoked before destruction of each thread owned by this
-  /// executor, and passed the ordinal index (0..thread_count()-1) of the
-  /// thread.
+  /// executor, and passed the ordinal index of the thread (which is always 0,
+  /// since this is a single-threaded executor).
   inline ex_asio& set_thread_teardown_hook(std::function<void(size_t)> Hook) {
     assert(!is_initialized);
     if (init_params == nullptr) {
@@ -131,8 +135,8 @@ public:
 
   /// Returns a pointer to the type erased `ex_any` version of this executor.
   /// This object shares a lifetime with this executor, and can be used for
-  /// pointer-based equality comparison against the thread-local
-  /// `tmc::current_executor()`.
+  /// pointer-based equality comparison against
+  /// the thread-local `tmc::current_executor()`.
   inline tmc::ex_any* type_erased() { return &type_erased_this; }
 
   inline void graceful_stop() { ioc.stop(); }
