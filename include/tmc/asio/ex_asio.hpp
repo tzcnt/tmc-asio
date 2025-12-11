@@ -7,6 +7,7 @@
 #include "tmc/aw_resume_on.hpp"
 #include "tmc/detail/compat.hpp"
 #include "tmc/detail/concepts_work_item.hpp"
+#include "tmc/detail/init_params.hpp"
 #include "tmc/detail/thread_locals.hpp"
 #include "tmc/ex_any.hpp"
 #include "tmc/work_item.hpp"
@@ -35,7 +36,23 @@ class ex_asio {
     std::function<void(size_t)> thread_init_hook = nullptr;
     std::function<void(size_t)> thread_teardown_hook = nullptr;
   };
-  InitParams* init_params = nullptr;
+  tmc::detail::InitParams* init_params;
+
+  inline tmc::detail::InitParams* set_init_params() {
+    assert(!is_initialized);
+    if (init_params == nullptr) {
+      init_params = new tmc::detail::InitParams;
+    }
+    return init_params;
+  }
+
+  inline void init_thread_locals() {
+    tmc::detail::this_thread::executor = &type_erased_this;
+  }
+
+  inline void clear_thread_locals() {
+    tmc::detail::this_thread::executor = nullptr;
+  }
 
 public:
 #ifdef TMC_USE_BOOST_ASIO
@@ -48,15 +65,18 @@ public:
   tmc::ex_any type_erased_this;
   bool is_initialized;
 
+#ifdef TMC_USE_HWLOC
+  inline ex_asio& set_topology_filter(tmc::topology::TopologyFilter Filter) {
+    set_init_params()->set_topology_filter(Filter);
+    return *this;
+  }
+#endif
+
   /// Hook will be invoked at the startup of the executor thread, and passed
   /// the ordinal index of the thread (which is always 0, since this is a
   /// single-threaded executor).
   inline ex_asio& set_thread_init_hook(std::function<void(size_t)> Hook) {
-    assert(!is_initialized);
-    if (init_params == nullptr) {
-      init_params = new InitParams;
-    }
-    init_params->thread_init_hook = std::move(Hook);
+    set_init_params()->set_thread_init_hook(Hook);
     return *this;
   }
 
@@ -64,24 +84,10 @@ public:
   /// executor, and passed the ordinal index of the thread (which is always 0,
   /// since this is a single-threaded executor).
   inline ex_asio& set_thread_teardown_hook(std::function<void(size_t)> Hook) {
-    assert(!is_initialized);
-    if (init_params == nullptr) {
-      init_params = new InitParams;
-    }
-    init_params->thread_teardown_hook = std::move(Hook);
+    set_init_params()->set_thread_teardown_hook(Hook);
     return *this;
   }
 
-private:
-  inline void init_thread_locals() {
-    tmc::detail::this_thread::executor = &type_erased_this;
-  }
-
-  inline void clear_thread_locals() {
-    tmc::detail::this_thread::executor = nullptr;
-  }
-
-public:
   inline void init() {
     if (is_initialized) {
       return;
@@ -93,26 +99,74 @@ public:
     // replaces need for an executor_work_guard
     ioc.get_executor().on_work_started();
 
-    InitParams params;
-    if (init_params != nullptr) {
-      params = *init_params;
+#ifdef TMC_USE_HWLOC
+    hwloc_topology_t topo;
+    auto internal_topo = tmc::topology::detail::query_internal(topo);
+
+    // Create partition cpuset based on user configuration
+    hwloc_cpuset_t partitionCpuset = nullptr;
+    if (init_params != nullptr && init_params->partition.active()) {
+      partitionCpuset =
+        static_cast<hwloc_cpuset_t>(tmc::detail::make_partition_cpuset(
+          topo, internal_topo, init_params->partition
+        ));
+      std::printf("overall partition cpuset:\n");
+      print_cpu_set(partitionCpuset);
+    }
+#endif
+
+    // Copy this since it outlives init_params
+    std::function<void(size_t)> ThreadTeardownHook = nullptr;
+    if (init_params != nullptr &&
+        init_params->thread_teardown_hook != nullptr) {
+      ThreadTeardownHook = init_params->thread_teardown_hook;
     }
 
-    ioc_thread = std::jthread([this, params]() {
+    std::atomic<int> initThreadsBarrier(1);
+    tmc::detail::memory_barrier();
+    ioc_thread = std::jthread([this, &initThreadsBarrier, ThreadTeardownHook
+#ifdef TMC_USE_HWLOC
+                               ,
+                               topo,
+                               myCpuSet =
+                                 static_cast<hwloc_bitmap_t>(partitionCpuset)
+#endif
+    ]() {
+      // Ensure this thread sees all non-atomic read-only values
+      tmc::detail::memory_barrier();
+
+#ifdef TMC_USE_HWLOC
+      if (myCpuSet != nullptr) {
+        tmc::detail::bind_thread(static_cast<hwloc_topology_t>(topo), myCpuSet);
+      }
+      hwloc_bitmap_free(myCpuSet);
+#endif
+
       // Setup
       init_thread_locals();
-      if (params.thread_init_hook != nullptr) {
-        params.thread_init_hook(0);
+
+      if (init_params != nullptr && init_params->thread_init_hook != nullptr) {
+        init_params->thread_init_hook(0);
       }
+
+      initThreadsBarrier.fetch_sub(1);
+      initThreadsBarrier.notify_all();
 
       // Run loop
       ioc.run();
 
       // Teardown
-      if (params.thread_teardown_hook != nullptr) {
-        params.thread_teardown_hook(0);
+      if (ThreadTeardownHook != nullptr) {
+        ThreadTeardownHook(0);
       }
     });
+
+    // Wait for worker to finish init
+    auto barrierVal = initThreadsBarrier.load();
+    while (barrierVal != 0) {
+      initThreadsBarrier.wait(barrierVal);
+      barrierVal = initThreadsBarrier.load();
+    }
 
     if (init_params != nullptr) {
       delete init_params;
@@ -130,7 +184,9 @@ public:
     ioc_thread.join();
   }
 
-  inline ex_asio() : ioc(1), type_erased_this(this), is_initialized(false) {}
+  inline ex_asio()
+      : init_params{nullptr}, ioc(1), type_erased_this(this),
+        is_initialized(false) {}
   inline ~ex_asio() { teardown(); }
 
   /// Returns a pointer to the type erased `ex_any` version of this executor.
