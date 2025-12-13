@@ -8,6 +8,7 @@
 #include "tmc/detail/compat.hpp"
 #include "tmc/detail/concepts_work_item.hpp"
 #include "tmc/detail/init_params.hpp"
+#include "tmc/detail/thread_layout.hpp"
 #include "tmc/detail/thread_locals.hpp"
 #include "tmc/ex_any.hpp"
 #include "tmc/work_item.hpp"
@@ -105,7 +106,7 @@ public:
 
     // Create partition cpuset based on user configuration
     hwloc_cpuset_t partitionCpuset = nullptr;
-    if (init_params != nullptr && init_params->partition.active()) {
+    if (init_params != nullptr) {
       partitionCpuset =
         static_cast<hwloc_cpuset_t>(tmc::detail::make_partition_cpuset(
           topo, internal_topo, init_params->partition
