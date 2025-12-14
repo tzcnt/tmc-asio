@@ -138,7 +138,7 @@ public:
 
 #ifdef TMC_USE_HWLOC
       if (myCpuSet != nullptr) {
-        tmc::detail::bind_thread(static_cast<hwloc_topology_t>(topo), myCpuSet);
+        tmc::detail::pin_thread(static_cast<hwloc_topology_t>(topo), myCpuSet);
       }
       hwloc_bitmap_free(myCpuSet);
 #endif
