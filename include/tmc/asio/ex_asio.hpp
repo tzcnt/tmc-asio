@@ -33,10 +33,6 @@ namespace tmc {
 /// It is both a TooManyCooks executor and an Asio executor,
 /// so it can be passed to functions from either library.
 class ex_asio {
-  struct InitParams {
-    std::function<void(size_t)> thread_init_hook = nullptr;
-    std::function<void(size_t)> thread_teardown_hook = nullptr;
-  };
   tmc::detail::InitParams* init_params;
 
   inline tmc::detail::InitParams* set_init_params() {
