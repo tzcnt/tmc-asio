@@ -7,6 +7,7 @@
 #include "tmc/aw_resume_on.hpp"
 #include "tmc/detail/compat.hpp"
 #include "tmc/detail/concepts_work_item.hpp"
+#include "tmc/detail/hwloc_unique_bitmap.hpp"
 #include "tmc/detail/init_params.hpp"
 #include "tmc/detail/thread_layout.hpp"
 #include "tmc/detail/thread_locals.hpp"
@@ -101,7 +102,7 @@ public:
     auto internal_topo = tmc::topology::detail::query_internal(topo);
 
     // Create partition cpuset based on user configuration
-    hwloc_cpuset_t partitionCpuset = nullptr;
+    tmc::detail::hwloc_unique_bitmap partitionCpuset;
     if (init_params != nullptr) {
       partitionCpuset =
         static_cast<hwloc_cpuset_t>(tmc::detail::make_partition_cpuset(
@@ -124,9 +125,7 @@ public:
     ioc_thread = std::jthread([this, &initThreadsBarrier, ThreadTeardownHook
 #ifdef TMC_USE_HWLOC
                                ,
-                               topo,
-                               myCpuSet =
-                                 static_cast<hwloc_bitmap_t>(partitionCpuset)
+                               topo, myCpuSet = partitionCpuset.obj
 #endif
     ]() {
       // Ensure this thread sees all non-atomic read-only values
@@ -136,7 +135,6 @@ public:
       if (myCpuSet != nullptr) {
         tmc::detail::pin_thread(static_cast<hwloc_topology_t>(topo), myCpuSet);
       }
-      hwloc_bitmap_free(myCpuSet);
 #endif
 
       // Setup
