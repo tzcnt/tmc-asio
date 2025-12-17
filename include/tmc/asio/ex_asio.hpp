@@ -64,8 +64,8 @@ public:
   bool is_initialized;
 
 #ifdef TMC_USE_HWLOC
-  inline ex_asio& set_topology_filter(tmc::topology::TopologyFilter Filter) {
-    set_init_params()->set_topology_filter(Filter);
+  inline ex_asio& add_partition(tmc::topology::TopologyFilter Filter) {
+    set_init_params()->add_partition(Filter);
     return *this;
   }
 #endif
@@ -103,10 +103,10 @@ public:
 
     // Create partition cpuset based on user configuration
     tmc::detail::hwloc_unique_bitmap partitionCpuset;
-    if (init_params != nullptr) {
+    if (init_params != nullptr && !init_params->partitions.empty()) {
       partitionCpuset =
         static_cast<hwloc_cpuset_t>(tmc::detail::make_partition_cpuset(
-          topo, internal_topo, init_params->partition
+          topo, internal_topo, init_params->partitions[0]
         ));
       std::printf("overall partition cpuset:\n");
       print_cpu_set(partitionCpuset);
