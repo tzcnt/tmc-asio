@@ -12,6 +12,7 @@
 #include "tmc/detail/thread_layout.hpp"
 #include "tmc/detail/thread_locals.hpp"
 #include "tmc/ex_any.hpp"
+#include "tmc/topology.hpp"
 #include "tmc/work_item.hpp"
 
 #ifdef TMC_USE_BOOST_ASIO
@@ -113,7 +114,7 @@ public:
 #endif
 
     // Copy this since it outlives init_params
-    std::function<void(size_t)> ThreadTeardownHook = nullptr;
+    std::function<void(tmc::topology::ThreadInfo)> ThreadTeardownHook = nullptr;
     if (init_params != nullptr &&
         init_params->thread_teardown_hook != nullptr) {
       ThreadTeardownHook = init_params->thread_teardown_hook;
@@ -140,7 +141,9 @@ public:
       init_thread_locals();
 
       if (init_params != nullptr && init_params->thread_init_hook != nullptr) {
-        init_params->thread_init_hook(0);
+        tmc::topology::ThreadInfo info;
+        info.index = 0;
+        init_params->thread_init_hook(info);
       }
 
       initThreadsBarrier.fetch_sub(1);
@@ -151,7 +154,9 @@ public:
 
       // Teardown
       if (ThreadTeardownHook != nullptr) {
-        ThreadTeardownHook(0);
+        tmc::topology::ThreadInfo info;
+        info.index = 0;
+        ThreadTeardownHook(info);
       }
     });
 
