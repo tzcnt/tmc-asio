@@ -104,9 +104,10 @@ public:
 
     // Create partition cpuset based on user configuration
     tmc::detail::hwloc_unique_bitmap partitionCpuset;
+    tmc::topology::CpuKind::value cpuKind = tmc::topology::CpuKind::ALL;
     if (init_params != nullptr && !init_params->partitions.empty()) {
       partitionCpuset = tmc::detail::make_partition_cpuset(
-        topo, internal_topo, init_params->partitions[0]
+        topo, internal_topo, init_params->partitions[0], cpuKind
       );
       std::printf("overall partition cpuset:\n");
       print_cpu_set(partitionCpuset);
@@ -125,7 +126,8 @@ public:
     ioc_thread = std::jthread([this, &initThreadsBarrier, ThreadTeardownHook
 #ifdef TMC_USE_HWLOC
                                ,
-                               topo, myCpuSet = partitionCpuset.obj
+                               topo, myCpuSet = partitionCpuset.obj,
+                               Kind = cpuKind
 #endif
     ]() {
       // Ensure this thread sees all non-atomic read-only values
@@ -133,7 +135,9 @@ public:
 
 #ifdef TMC_USE_HWLOC
       if (myCpuSet != nullptr) {
-        tmc::detail::pin_thread(static_cast<hwloc_topology_t>(topo), myCpuSet);
+        tmc::detail::pin_thread(
+          static_cast<hwloc_topology_t>(topo), myCpuSet, Kind
+        );
       }
 #endif
 
