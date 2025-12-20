@@ -104,10 +104,9 @@ public:
     // Create partition cpuset based on user configuration
     tmc::detail::hwloc_unique_bitmap partitionCpuset;
     if (init_params != nullptr && !init_params->partitions.empty()) {
-      partitionCpuset =
-        static_cast<hwloc_cpuset_t>(tmc::detail::make_partition_cpuset(
-          topo, internal_topo, init_params->partitions[0]
-        ));
+      partitionCpuset = tmc::detail::make_partition_cpuset(
+        topo, internal_topo, init_params->partitions[0]
+      );
       std::printf("overall partition cpuset:\n");
       print_cpu_set(partitionCpuset);
     }
