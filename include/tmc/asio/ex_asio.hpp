@@ -110,7 +110,7 @@ public:
         topo, internal_topo, init_params->partitions[0], cpuKind
       );
       std::printf("overall partition cpuset:\n");
-      print_cpu_set(partitionCpuset);
+      partitionCpuset.print();
     }
 #endif
 
@@ -126,10 +126,10 @@ public:
     ioc_thread = std::jthread([this, &initThreadsBarrier, ThreadTeardownHook
 #ifdef TMC_USE_HWLOC
                                ,
-                               topo, myCpuSet = partitionCpuset.obj,
+                               topo, myCpuSet = partitionCpuset.clone(),
                                Kind = cpuKind
 #endif
-    ]() {
+    ]() mutable {
       // Ensure this thread sees all non-atomic read-only values
       tmc::detail::memory_barrier();
 
@@ -138,6 +138,7 @@ public:
         tmc::detail::pin_thread(
           static_cast<hwloc_topology_t>(topo), myCpuSet, Kind
         );
+        myCpuSet.free();
       }
 #endif
 
