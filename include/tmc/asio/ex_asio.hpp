@@ -30,6 +30,10 @@
 #include <functional>
 #include <thread>
 
+#ifdef TMC_DEBUG_THREAD_CREATION
+#include <cstdio>
+#endif
+
 namespace tmc {
 /// A wrapper over `asio::io_context` with a single executor thread.
 /// It is both a TooManyCooks executor and an Asio executor,
@@ -109,8 +113,10 @@ public:
       partitionCpuset = tmc::detail::make_partition_cpuset(
         topo, internal_topo, init_params->partitions[0], cpuKind
       );
-      std::printf("overall partition cpuset:\n");
+#ifdef TMC_DEBUG_THREAD_CREATION
+      std::printf("ex_asio partition cpuset bitmap: ");
       partitionCpuset.print();
+#endif
     }
 #endif
 
