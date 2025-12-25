@@ -72,7 +72,7 @@ public:
   /// Requires `TMC_USE_HWLOC`.
   /// Builder func to limit the executor to a subset of the available CPUs.
   /// This should only be called once, as this is a single-threaded executor.
-  inline ex_asio& add_partition(tmc::topology::TopologyFilter Filter) {
+  inline ex_asio& add_partition(tmc::topology::topology_filter Filter) {
     set_init_params()->add_partition(Filter);
     return *this;
   }
@@ -111,7 +111,7 @@ public:
 
     // Create partition cpuset based on user configuration
     tmc::detail::hwloc_unique_bitmap partitionCpuset;
-    tmc::topology::CpuKind::value cpuKind = tmc::topology::CpuKind::ALL;
+    tmc::topology::cpu_kind::value cpuKind = tmc::topology::cpu_kind::ALL;
     if (init_params != nullptr && !init_params->partitions.empty()) {
       partitionCpuset = tmc::detail::make_partition_cpuset(
         topo, internal_topo, init_params->partitions[0], cpuKind
@@ -124,7 +124,8 @@ public:
 #endif
 
     // Copy this since it outlives init_params
-    std::function<void(tmc::topology::ThreadInfo)> ThreadTeardownHook = nullptr;
+    std::function<void(tmc::topology::thread_info)> ThreadTeardownHook =
+      nullptr;
     if (init_params != nullptr &&
         init_params->thread_teardown_hook != nullptr) {
       ThreadTeardownHook = init_params->thread_teardown_hook;
@@ -155,7 +156,7 @@ public:
       init_thread_locals();
 
       if (init_params != nullptr && init_params->thread_init_hook != nullptr) {
-        tmc::topology::ThreadInfo info;
+        tmc::topology::thread_info info;
         info.index = 0;
         init_params->thread_init_hook(info);
       }
@@ -168,7 +169,7 @@ public:
 
       // Teardown
       if (ThreadTeardownHook != nullptr) {
-        tmc::topology::ThreadInfo info;
+        tmc::topology::thread_info info;
         info.index = 0;
         ThreadTeardownHook(info);
       }
