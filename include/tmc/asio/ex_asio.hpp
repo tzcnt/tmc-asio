@@ -69,23 +69,26 @@ public:
   bool is_initialized;
 
 #ifdef TMC_USE_HWLOC
+  /// Requires `TMC_USE_HWLOC`.
+  /// Builder func to limit the executor to a subset of the available CPUs.
+  /// This should only be called once, as this is a single-threaded executor.
   inline ex_asio& add_partition(tmc::topology::TopologyFilter Filter) {
     set_init_params()->add_partition(Filter);
     return *this;
   }
 #endif
 
-  /// Hook will be invoked at the startup of the executor thread, and passed
-  /// the ordinal index of the thread (which is always 0, since this is a
-  /// single-threaded executor).
+  /// Builder func to set a hook that will be invoked at the startup of the
+  /// executor thread, and passed the ordinal index of the thread (which is
+  /// always 0, since this is a single-threaded executor).
   inline ex_asio& set_thread_init_hook(std::function<void(size_t)> Hook) {
     set_init_params()->set_thread_init_hook(Hook);
     return *this;
   }
 
-  /// Hook will be invoked before destruction of each thread owned by this
-  /// executor, and passed the ordinal index of the thread (which is always 0,
-  /// since this is a single-threaded executor).
+  /// Builder func to set a hook that will be invoked before destruction of each
+  /// thread owned by this executor, and passed the ordinal index of the thread
+  /// (which is always 0, since this is a single-threaded executor).
   inline ex_asio& set_thread_teardown_hook(std::function<void(size_t)> Hook) {
     set_init_params()->set_thread_teardown_hook(Hook);
     return *this;
