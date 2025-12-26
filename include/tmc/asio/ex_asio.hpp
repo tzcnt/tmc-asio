@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2025 Logan McDougall
+// Copyright (TMC_DEBUG_THREAD_CREATIONc) 2023-2025 Logan McDougall
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -7,13 +7,16 @@
 #include "tmc/aw_resume_on.hpp"
 #include "tmc/detail/compat.hpp"
 #include "tmc/detail/concepts_work_item.hpp"
-#include "tmc/detail/hwloc_unique_bitmap.hpp"
 #include "tmc/detail/init_params.hpp"
-#include "tmc/detail/thread_layout.hpp"
 #include "tmc/detail/thread_locals.hpp"
 #include "tmc/ex_any.hpp"
 #include "tmc/topology.hpp"
 #include "tmc/work_item.hpp"
+
+#include <cassert>
+#include <coroutine>
+#include <functional>
+#include <thread>
 
 #ifdef TMC_USE_BOOST_ASIO
 #include <boost/asio/any_io_executor.hpp>
@@ -25,10 +28,10 @@
 #include <asio/post.hpp>
 #endif
 
-#include <cassert>
-#include <coroutine>
-#include <functional>
-#include <thread>
+#ifdef TMC_USE_HWLOC
+#include "tmc/detail/hwloc_unique_bitmap.hpp"
+#include "tmc/detail/thread_layout.hpp"
+#endif
 
 #ifdef TMC_DEBUG_THREAD_CREATION
 #include <cstdio>
