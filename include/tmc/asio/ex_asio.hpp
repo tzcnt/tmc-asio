@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2025 Logan McDougall
+// Copyright (TMC_DEBUG_THREAD_CREATIONc) 2023-2025 Logan McDougall
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -7,9 +7,16 @@
 #include "tmc/aw_resume_on.hpp"
 #include "tmc/detail/compat.hpp"
 #include "tmc/detail/concepts_work_item.hpp"
+#include "tmc/detail/init_params.hpp"
 #include "tmc/detail/thread_locals.hpp"
 #include "tmc/ex_any.hpp"
+#include "tmc/topology.hpp"
 #include "tmc/work_item.hpp"
+
+#include <cassert>
+#include <coroutine>
+#include <functional>
+#include <thread>
 
 #ifdef TMC_USE_BOOST_ASIO
 #include <boost/asio/any_io_executor.hpp>
@@ -21,21 +28,37 @@
 #include <asio/post.hpp>
 #endif
 
-#include <cassert>
-#include <coroutine>
-#include <functional>
-#include <thread>
+#ifdef TMC_USE_HWLOC
+#include "tmc/detail/hwloc_unique_bitmap.hpp"
+#include "tmc/detail/thread_layout.hpp"
+#endif
+
+#ifdef TMC_DEBUG_THREAD_CREATION
+#include <cstdio>
+#endif
 
 namespace tmc {
 /// A wrapper over `asio::io_context` with a single executor thread.
 /// It is both a TooManyCooks executor and an Asio executor,
 /// so it can be passed to functions from either library.
 class ex_asio {
-  struct InitParams {
-    std::function<void(size_t)> thread_init_hook = nullptr;
-    std::function<void(size_t)> thread_teardown_hook = nullptr;
-  };
-  InitParams* init_params = nullptr;
+  tmc::detail::InitParams* init_params;
+
+  inline tmc::detail::InitParams* set_init_params() {
+    assert(!is_initialized);
+    if (init_params == nullptr) {
+      init_params = new tmc::detail::InitParams;
+    }
+    return init_params;
+  }
+
+  inline void init_thread_locals() {
+    tmc::detail::this_thread::executor = &type_erased_this;
+  }
+
+  inline void clear_thread_locals() {
+    tmc::detail::this_thread::executor = nullptr;
+  }
 
 public:
 #ifdef TMC_USE_BOOST_ASIO
@@ -48,40 +71,32 @@ public:
   tmc::ex_any type_erased_this;
   bool is_initialized;
 
-  /// Hook will be invoked at the startup of the executor thread, and passed
-  /// the ordinal index of the thread (which is always 0, since this is a
-  /// single-threaded executor).
+#ifdef TMC_USE_HWLOC
+  /// Requires `TMC_USE_HWLOC`.
+  /// Builder func to limit the executor to a subset of the available CPUs.
+  /// This should only be called once, as this is a single-threaded executor.
+  inline ex_asio& add_partition(tmc::topology::topology_filter Filter) {
+    set_init_params()->add_partition(Filter);
+    return *this;
+  }
+#endif
+
+  /// Builder func to set a hook that will be invoked at the startup of the
+  /// executor thread, and passed the ordinal index of the thread (which is
+  /// always 0, since this is a single-threaded executor).
   inline ex_asio& set_thread_init_hook(std::function<void(size_t)> Hook) {
-    assert(!is_initialized);
-    if (init_params == nullptr) {
-      init_params = new InitParams;
-    }
-    init_params->thread_init_hook = std::move(Hook);
+    set_init_params()->set_thread_init_hook(Hook);
     return *this;
   }
 
-  /// Hook will be invoked before destruction of each thread owned by this
-  /// executor, and passed the ordinal index of the thread (which is always 0,
-  /// since this is a single-threaded executor).
+  /// Builder func to set a hook that will be invoked before destruction of each
+  /// thread owned by this executor, and passed the ordinal index of the thread
+  /// (which is always 0, since this is a single-threaded executor).
   inline ex_asio& set_thread_teardown_hook(std::function<void(size_t)> Hook) {
-    assert(!is_initialized);
-    if (init_params == nullptr) {
-      init_params = new InitParams;
-    }
-    init_params->thread_teardown_hook = std::move(Hook);
+    set_init_params()->set_thread_teardown_hook(Hook);
     return *this;
   }
 
-private:
-  inline void init_thread_locals() {
-    tmc::detail::this_thread::executor = &type_erased_this;
-  }
-
-  inline void clear_thread_locals() {
-    tmc::detail::this_thread::executor = nullptr;
-  }
-
-public:
   inline void init() {
     if (is_initialized) {
       return;
@@ -93,26 +108,82 @@ public:
     // replaces need for an executor_work_guard
     ioc.get_executor().on_work_started();
 
-    InitParams params;
-    if (init_params != nullptr) {
-      params = *init_params;
+#ifdef TMC_USE_HWLOC
+    hwloc_topology_t topo;
+    auto internal_topo = tmc::topology::detail::query_internal(topo);
+
+    // Create partition cpuset based on user configuration
+    tmc::detail::hwloc_unique_bitmap partitionCpuset;
+    tmc::topology::cpu_kind::value cpuKind = tmc::topology::cpu_kind::ALL;
+    if (init_params != nullptr && !init_params->partitions.empty()) {
+      partitionCpuset = tmc::detail::make_partition_cpuset(
+        topo, internal_topo, init_params->partitions[0], cpuKind
+      );
+#ifdef TMC_DEBUG_THREAD_CREATION
+      std::printf("ex_asio partition cpuset bitmap: ");
+      partitionCpuset.print();
+#endif
+    }
+#endif
+
+    // Copy this since it outlives init_params
+    std::function<void(tmc::topology::thread_info)> ThreadTeardownHook =
+      nullptr;
+    if (init_params != nullptr &&
+        init_params->thread_teardown_hook != nullptr) {
+      ThreadTeardownHook = init_params->thread_teardown_hook;
     }
 
-    ioc_thread = std::jthread([this, params]() {
+    std::atomic<int> initThreadsBarrier(1);
+    tmc::detail::memory_barrier();
+    ioc_thread = std::jthread([this, &initThreadsBarrier, ThreadTeardownHook
+#ifdef TMC_USE_HWLOC
+                               ,
+                               topo, myCpuSet = partitionCpuset.clone(),
+                               Kind = cpuKind
+#endif
+    ]() mutable {
+      // Ensure this thread sees all non-atomic read-only values
+      tmc::detail::memory_barrier();
+
+#ifdef TMC_USE_HWLOC
+      if (myCpuSet != nullptr) {
+        tmc::detail::pin_thread(
+          static_cast<hwloc_topology_t>(topo), myCpuSet, Kind
+        );
+        myCpuSet.free();
+      }
+#endif
+
       // Setup
       init_thread_locals();
-      if (params.thread_init_hook != nullptr) {
-        params.thread_init_hook(0);
+
+      if (init_params != nullptr && init_params->thread_init_hook != nullptr) {
+        tmc::topology::thread_info info;
+        info.index = 0;
+        init_params->thread_init_hook(info);
       }
+
+      initThreadsBarrier.fetch_sub(1);
+      initThreadsBarrier.notify_all();
 
       // Run loop
       ioc.run();
 
       // Teardown
-      if (params.thread_teardown_hook != nullptr) {
-        params.thread_teardown_hook(0);
+      if (ThreadTeardownHook != nullptr) {
+        tmc::topology::thread_info info;
+        info.index = 0;
+        ThreadTeardownHook(info);
       }
     });
+
+    // Wait for worker to finish init
+    auto barrierVal = initThreadsBarrier.load();
+    while (barrierVal != 0) {
+      initThreadsBarrier.wait(barrierVal);
+      barrierVal = initThreadsBarrier.load();
+    }
 
     if (init_params != nullptr) {
       delete init_params;
@@ -130,7 +201,9 @@ public:
     ioc_thread.join();
   }
 
-  inline ex_asio() : ioc(1), type_erased_this(this), is_initialized(false) {}
+  inline ex_asio()
+      : init_params{nullptr}, ioc(1), type_erased_this(this),
+        is_initialized(false) {}
   inline ~ex_asio() { teardown(); }
 
   /// Returns a pointer to the type erased `ex_any` version of this executor.
