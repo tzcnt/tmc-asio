@@ -144,9 +144,6 @@ public:
                                Kind = cpuKind
 #endif
     ]() mutable {
-      // Ensure this thread sees all non-atomic read-only values
-      tmc::detail::memory_barrier();
-
 #ifdef TMC_USE_HWLOC
       if (myCpuSet != nullptr) {
         tmc::detail::pin_thread(topo, myCpuSet, Kind);
