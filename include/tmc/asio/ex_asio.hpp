@@ -29,6 +29,7 @@
 #endif
 
 #ifdef TMC_USE_HWLOC
+#include "tmc/detail/hwloc_forward_defs.hpp"
 #include "tmc/detail/hwloc_unique_bitmap.hpp"
 #include "tmc/detail/thread_layout.hpp"
 #endif
@@ -109,7 +110,7 @@ public:
     ioc.get_executor().on_work_started();
 
 #ifdef TMC_USE_HWLOC
-    hwloc_topology_t topo;
+    hwloc_topology* topo;
     auto internal_topo = tmc::topology::detail::query_internal(topo);
 
     // Create partition cpuset based on user configuration
@@ -148,9 +149,7 @@ public:
 
 #ifdef TMC_USE_HWLOC
       if (myCpuSet != nullptr) {
-        tmc::detail::pin_thread(
-          static_cast<hwloc_topology_t>(topo), myCpuSet, Kind
-        );
+        tmc::detail::pin_thread(topo, myCpuSet, Kind);
         myCpuSet.free();
       }
 #endif
