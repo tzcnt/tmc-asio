@@ -135,7 +135,7 @@ public:
       ThreadTeardownHook = init_params->thread_teardown_hook;
     }
 
-    std::atomic<int> initThreadsBarrier(1);
+    std::atomic<tmc::detail::atomic_wait_t> initThreadsBarrier(1);
     tmc::detail::memory_barrier();
     ioc_thread = std::jthread([this, &initThreadsBarrier, ThreadTeardownHook
 #ifdef TMC_USE_HWLOC
