@@ -155,7 +155,7 @@ public:
       init_thread_locals();
 
       if (init_params != nullptr && init_params->thread_init_hook != nullptr) {
-        tmc::topology::thread_info info;
+        tmc::topology::thread_info info{};
         info.index = 0;
         init_params->thread_init_hook(info);
       }
@@ -168,7 +168,7 @@ public:
 
       // Teardown
       if (ThreadTeardownHook != nullptr) {
-        tmc::topology::thread_info info;
+        tmc::topology::thread_info info{};
         info.index = 0;
         ThreadTeardownHook(info);
       }
