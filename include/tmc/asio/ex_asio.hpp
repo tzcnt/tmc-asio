@@ -277,7 +277,7 @@ private:
   friend class aw_ex_scope_enter<ex_asio>;
   friend tmc::detail::executor_traits<ex_asio>;
   inline std::coroutine_handle<>
-  task_enter_context(std::coroutine_handle<> Outer, size_t Priority) {
+  dispatch(std::coroutine_handle<> Outer, size_t Priority) {
     if (tmc::detail::this_thread::exec_prio_is(&type_erased_this, Priority)) {
       return Outer;
     } else {
@@ -307,10 +307,9 @@ template <> struct executor_traits<tmc::ex_asio> {
     return ex.type_erased();
   }
 
-  static inline std::coroutine_handle<> task_enter_context(
-    tmc::ex_asio& ex, std::coroutine_handle<> Outer, size_t Priority
-  ) {
-    return ex.task_enter_context(Outer, Priority);
+  static inline std::coroutine_handle<>
+  dispatch(tmc::ex_asio& ex, std::coroutine_handle<> Outer, size_t Priority) {
+    return ex.dispatch(Outer, Priority);
   }
 };
 
