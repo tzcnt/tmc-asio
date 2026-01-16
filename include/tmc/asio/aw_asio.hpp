@@ -9,6 +9,7 @@
 
 #pragma once
 #include "tmc/detail/awaitable_customizer.hpp"
+#include "tmc/detail/compat.hpp"
 #include "tmc/detail/concepts_awaitable.hpp" // IWYU pragma: keep
 #include "tmc/ex_any.hpp"
 
@@ -133,7 +134,7 @@ template <typename Awaitable> struct aw_asio_impl {
     handle.async_initiate();
   }
 
-  auto await_resume() noexcept {
+  TMC_AWAIT_RESUME auto await_resume() noexcept {
     // Move the result out of the optional
     // (returns tuple<Result>, not optional<tuple<Result>>)
     if constexpr (std::is_default_constructible_v<
