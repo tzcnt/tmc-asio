@@ -233,14 +233,16 @@ struct async_result<tmc::aw_asio_t, void(ResultArgs...)> {
     }
 
   public:
-    /// The wrapped task will run on the provided executor.
+    /// When co_awaited, the outer coroutine will resume on the provided
+    /// executor.
     template <typename Exec>
     [[nodiscard]] aw_asio& resume_on(Exec&& Executor) & {
       this->customizer.continuation_executor =
         tmc::detail::get_executor_traits<Exec>::type_erased(Executor);
       return *this;
     }
-    /// The wrapped task will run on the provided executor.
+    /// When co_awaited, the outer coroutine will resume on the provided
+    /// executor.
     template <typename Exec>
     [[nodiscard]] aw_asio& resume_on(Exec* Executor) & {
       this->customizer.continuation_executor =
@@ -248,14 +250,16 @@ struct async_result<tmc::aw_asio_t, void(ResultArgs...)> {
       return *this;
     }
 
-    /// The wrapped task will run on the provided executor.
+    /// When co_awaited, the outer coroutine will resume on the provided
+    /// executor.
     template <typename Exec>
     [[nodiscard]] aw_asio&& resume_on(Exec&& Executor) && {
       this->customizer.continuation_executor =
         tmc::detail::get_executor_traits<Exec>::type_erased(Executor);
       return std::move(*this);
     }
-    /// The wrapped task will run on the provided executor.
+    /// When co_awaited, the outer coroutine will resume on the provided
+    /// executor.
     template <typename Exec>
     [[nodiscard]] aw_asio&& resume_on(Exec* Executor) && {
       this->customizer.continuation_executor =
