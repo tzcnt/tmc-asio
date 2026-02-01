@@ -116,7 +116,8 @@ template <IsAwAsio Awaitable> struct awaitable_traits<Awaitable> {
 } // namespace detail
 
 template <typename Awaitable> struct aw_asio_impl {
-  // Keep an lvalue reference to handle. Depends on temporary lifetime extension
+  // Keep an lvalue reference to the awaitable. The reference is only used
+  // during await_suspend, but still depends on temporary lifetime extension
   // when used in some contexts. Safe as long as you don't call
   // aw_asio.operator co_await() on a temporary and try to save this for later.
   Awaitable& handle;
@@ -207,7 +208,7 @@ struct async_result<tmc::aw_asio_t, void(ResultArgs...)> {
     friend async_result;
     friend tmc::detail::awaitable_traits<aw_asio>;
     friend tmc::aw_asio_impl<aw_asio>;
-    using result_type = std::tuple<ResultArgs...>;
+    using result_type = std::tuple<std::decay_t<ResultArgs>...>;
 
     Init initiation;
     std::tuple<InitArgs...> init_args;
@@ -217,7 +218,7 @@ struct async_result<tmc::aw_asio_t, void(ResultArgs...)> {
           init_args(static_cast<InitArgs_&&>(Args)...) {}
 
     void initiate_await(
-      tmc::aw_asio_base<std::decay_t<ResultArgs>...>::callback Callback
+      typename tmc::aw_asio_base<std::decay_t<ResultArgs>...>::callback Callback
     ) final override {
       std::apply(
         [&](InitArgs&&... Args) {
