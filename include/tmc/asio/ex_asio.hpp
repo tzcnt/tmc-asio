@@ -11,6 +11,12 @@
 #include "tmc/ex_any.hpp"
 #include "tmc/work_item.hpp"
 
+#include <atomic>
+#include <cassert>
+#include <coroutine>
+#include <functional>
+#include <thread>
+
 #ifdef TMC_USE_BOOST_ASIO
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/io_context.hpp>
@@ -43,12 +49,12 @@ public:
   ioc_t ioc;
   std::jthread ioc_thread;
   tmc::ex_any type_erased_this;
-  bool is_initialized;
+  std::atomic<bool> initialized;
 
   /// Hook will be invoked at the startup of each thread owned by this executor,
   /// and passed the ordinal index (0..thread_count()-1) of the thread.
   inline ex_asio& set_thread_init_hook(std::function<void(size_t)> Hook) {
-    assert(!is_initialized);
+    assert(!initialized.load(std::memory_order_relaxed));
     if (init_params == nullptr) {
       init_params = new InitParams;
     }
@@ -60,7 +66,7 @@ public:
   /// executor, and passed the ordinal index (0..thread_count()-1) of the
   /// thread.
   inline ex_asio& set_thread_teardown_hook(std::function<void(size_t)> Hook) {
-    assert(!is_initialized);
+    assert(!initialized.load(std::memory_order_relaxed));
     if (init_params == nullptr) {
       init_params = new InitParams;
     }
@@ -79,10 +85,11 @@ private:
 
 public:
   inline void init() {
-    if (is_initialized) {
+    bool expected = false;
+    if (!initialized.compare_exchange_strong(expected, true)) {
       return;
     }
-    is_initialized = true;
+
     if (ioc.stopped()) {
       ioc.restart();
     }
@@ -115,18 +122,30 @@ public:
       init_params = nullptr;
     }
   }
+
+  /// Stops the executor, joins the worker thread, and destroys resources. Does
+  /// not wait for any queued work to complete. `teardown()` must not be
+  /// called from this executor's thread.
+  ///
+  /// Restores the executor to an uninitialized state. After
+  /// calling `teardown()`, you may call `set_X()` to reconfigure the executor
+  /// and call `init()` again.
+  ///
+  /// If the executor is not initialized, calling `teardown()` will do nothing.
   inline void teardown() {
-    if (!is_initialized) {
+    bool expected = true;
+    if (!initialized.compare_exchange_strong(expected, false)) {
       return;
     }
-    is_initialized = false;
     // replaces need for an executor_work_guard
     ioc.get_executor().on_work_finished();
     ioc.stop();
     ioc_thread.join();
   }
 
-  inline ex_asio() : ioc(1), type_erased_this(this), is_initialized(false) {}
+  inline ex_asio() : ioc(1), type_erased_this(this), initialized(false) {}
+
+  /// Invokes `teardown()`. Must not be called from this executor's thread.
   inline ~ex_asio() { teardown(); }
 
   /// Returns a pointer to the type erased `ex_any` version of this executor.
