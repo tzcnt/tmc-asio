@@ -216,13 +216,18 @@ public:
   /// Invokes `teardown()`. Must not be called from this executor's thread.
   inline ~ex_asio() { teardown(); }
 
+  // not movable or copyable due to type_erased_this pointer being accessible by
+  // child threads
+  ex_asio(ex_asio const&) = delete;
+  ex_asio& operator=(ex_asio const&) = delete;
+  ex_asio(ex_asio&&) = delete;
+  ex_asio& operator=(ex_asio&&) = delete;
+
   /// Returns a pointer to the type erased `ex_any` version of this executor.
   /// This object shares a lifetime with this executor, and can be used for
   /// pointer-based equality comparison against
   /// the thread-local `tmc::current_executor()`.
   inline tmc::ex_any* type_erased() { return &type_erased_this; }
-
-  inline void graceful_stop() { ioc.stop(); }
 
   inline void post(
     work_item&& Item, size_t Priority = 0,
