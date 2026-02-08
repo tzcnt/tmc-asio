@@ -4,6 +4,9 @@
 // file LICENSE or copy at http://www.boost.org/LICENSE_1_0.txt)
 
 #pragma once
+
+#include "tmc/detail/impl.hpp"
+
 #include "tmc/aw_resume_on.hpp"
 #include "tmc/detail/compat.hpp"
 #include "tmc/detail/concepts_work_item.hpp"
@@ -332,7 +335,14 @@ template <> struct executor_traits<tmc::ex_asio> {
   }
 };
 
+#ifdef TMC_WINDOWS_DLL
+TMC_DECL extern ex_asio g_ex_asio;
+#ifdef TMC_IMPL
+TMC_DECL ex_asio g_ex_asio;
+#endif
+#else
 inline ex_asio g_ex_asio;
+#endif
 } // namespace detail
 
 /// Returns a reference to the global instance of `tmc::ex_asio`.
