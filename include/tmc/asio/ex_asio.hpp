@@ -332,7 +332,14 @@ template <> struct executor_traits<tmc::ex_asio> {
   }
 };
 
+#ifdef TMC_WINDOWS_DLL
+TMC_DECL extern ex_asio g_ex_asio;
+#ifdef TMC_IMPL
+TMC_DECL ex_asio g_ex_asio;
+#endif
+#else
 inline ex_asio g_ex_asio;
+#endif
 } // namespace detail
 
 /// Returns a reference to the global instance of `tmc::ex_asio`.
