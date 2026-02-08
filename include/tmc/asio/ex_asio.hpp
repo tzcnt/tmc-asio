@@ -58,11 +58,11 @@ class ex_asio {
   }
 
   inline void init_thread_locals() {
-    tmc::detail::this_thread::executor = &type_erased_this;
+    tmc::detail::this_thread::executor() = &type_erased_this;
   }
 
   inline void clear_thread_locals() {
-    tmc::detail::this_thread::executor = nullptr;
+    tmc::detail::this_thread::executor() = nullptr;
   }
 
 public:
@@ -239,14 +239,14 @@ public:
 #ifdef TMC_USE_BOOST_ASIO
     boost::asio::post(
       ioc.get_executor(), [Priority, item = std::move(Item)]() mutable -> void {
-        tmc::detail::this_thread::this_task.prio = Priority;
+        tmc::detail::this_thread::this_task().prio = Priority;
         item();
       }
     );
 #else
     asio::post(
       ioc.get_executor(), [Priority, item = std::move(Item)]() mutable -> void {
-        tmc::detail::this_thread::this_task.prio = Priority;
+        tmc::detail::this_thread::this_task().prio = Priority;
         item();
       }
     );
@@ -265,7 +265,7 @@ public:
         [Priority,
          Item =
            tmc::detail::into_work_item(std::move(*Items))]() mutable -> void {
-          tmc::detail::this_thread::this_task.prio = Priority;
+          tmc::detail::this_thread::this_task().prio = Priority;
           Item();
         }
       );
@@ -275,7 +275,7 @@ public:
         [Priority,
          Item =
            tmc::detail::into_work_item(std::move(*Items))]() mutable -> void {
-          tmc::detail::this_thread::this_task.prio = Priority;
+          tmc::detail::this_thread::this_task().prio = Priority;
           Item();
         }
       );
