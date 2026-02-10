@@ -4,6 +4,9 @@
 // file LICENSE or copy at http://www.boost.org/LICENSE_1_0.txt)
 
 #pragma once
+
+#include "tmc/detail/impl.hpp" // IWYU pragma: keep
+
 #include "tmc/aw_resume_on.hpp"
 #include "tmc/detail/compat.hpp"
 #include "tmc/detail/concepts_work_item.hpp"
@@ -55,11 +58,11 @@ class ex_asio {
   }
 
   inline void init_thread_locals() {
-    tmc::detail::this_thread::executor = &type_erased_this;
+    tmc::detail::this_thread::executor() = &type_erased_this;
   }
 
   inline void clear_thread_locals() {
-    tmc::detail::this_thread::executor = nullptr;
+    tmc::detail::this_thread::executor() = nullptr;
   }
 
 public:
@@ -236,14 +239,14 @@ public:
 #ifdef TMC_USE_BOOST_ASIO
     boost::asio::post(
       ioc.get_executor(), [Priority, item = std::move(Item)]() mutable -> void {
-        tmc::detail::this_thread::this_task.prio = Priority;
+        tmc::detail::this_thread::this_task().prio = Priority;
         item();
       }
     );
 #else
     asio::post(
       ioc.get_executor(), [Priority, item = std::move(Item)]() mutable -> void {
-        tmc::detail::this_thread::this_task.prio = Priority;
+        tmc::detail::this_thread::this_task().prio = Priority;
         item();
       }
     );
@@ -262,7 +265,7 @@ public:
         [Priority,
          Item =
            tmc::detail::into_work_item(std::move(*Items))]() mutable -> void {
-          tmc::detail::this_thread::this_task.prio = Priority;
+          tmc::detail::this_thread::this_task().prio = Priority;
           Item();
         }
       );
@@ -272,7 +275,7 @@ public:
         [Priority,
          Item =
            tmc::detail::into_work_item(std::move(*Items))]() mutable -> void {
-          tmc::detail::this_thread::this_task.prio = Priority;
+          tmc::detail::this_thread::this_task().prio = Priority;
           Item();
         }
       );
@@ -332,7 +335,14 @@ template <> struct executor_traits<tmc::ex_asio> {
   }
 };
 
+#ifdef TMC_WINDOWS_DLL
+TMC_DECL extern ex_asio g_ex_asio;
+#ifdef TMC_IMPL
+TMC_DECL ex_asio g_ex_asio;
+#endif
+#else
 inline ex_asio g_ex_asio;
+#endif
 } // namespace detail
 
 /// Returns a reference to the global instance of `tmc::ex_asio`.
