@@ -75,3 +75,8 @@ To fully integrate your existing Asio setup with TMC, you must provide a special
 - `co_await`ing a `tmc::aw_asio` operation from a coroutine running on the TMC executor and modifying it via the `.resume_on()` function to have it resume inline on the Asio executor, rather than back on the TMC executor.
 - Using the standalone `co_await tmc::resume_on()` function to switch a running coroutine onto the Asio executor at any time.
 - Using the standalone `co_await tmc::enter()` function to switch a running coroutine onto the Asio executor at any time.
+
+### Building
+tmc-asio is a header-only library, unless you want to dllexport/dllimport the global `tmc::asio_executor()` from a Windows DLL.
+If you do, then in addition to defining `TMC_WINDOWS_DLL`, you must include `tmc/asio/ex_asio.hpp` in your standalone compilation file.
+See [https://github.com/tzcnt/tmc-examples/blob/main/examples/standalone_compilation.cpp](https://github.com/tzcnt/tmc-examples/blob/main/examples/standalone_compilation.cpp) for more info.
