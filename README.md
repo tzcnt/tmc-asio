@@ -1,3 +1,7 @@
+## This repo is obsolete
+Version of TooManyCooks <= v1.4 required this library for Asio integration.
+With TooManyCooks v1.5, this is [included directly](https://github.com/tzcnt/TooManyCooks/tree/main/include/tmc/asio) in the main project repo. Usage remains exactly the same.
+
 ## tmc-asio
 tmc-asio provides [Asio](https://think-async.com/Asio/) integration functionality for the [TooManyCooks](https://github.com/tzcnt/TooManyCooks) async runtime.
 
